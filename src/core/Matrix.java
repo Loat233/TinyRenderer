@@ -6,7 +6,7 @@ public class Matrix<T extends Number> {
     int row;
     int column;
     T[][] matrix;
-    private Class<T> elenmet_class;
+    private final Class<T> elenmet_class;
 
     public Matrix(Class<T> elenmet_class, int row, int column) {
         this.elenmet_class = elenmet_class;
@@ -17,8 +17,8 @@ public class Matrix<T extends Number> {
 
     public Matrix(Class<T> elenmet_class, T[][] matrix) {
         this.elenmet_class = elenmet_class;
-        this.row = matrix[0].length;
-        this.column = matrix.length;
+        this.row = matrix.length;
+        this.column = matrix[0].length;
         this.matrix = matrix;
     }
 
