@@ -1,70 +1,65 @@
 package core;
 
-import java.lang.reflect.Array;
-
-public class Matrix<T extends Number> {
-    int row;
-    int column;
-    T[][] matrix;
-    private final Class<T> elenmet_class;
-
-    public Matrix(Class<T> elenmet_class, int row, int column) {
-        this.elenmet_class = elenmet_class;
-        this.row = row;
-        this.column = column;
-        this.matrix = (T[][]) Array.newInstance(elenmet_class, row, column);
+public class Matrix {
+    public static int column(double[][] A) {
+        return A[0].length;
     }
 
-    public Matrix(Class<T> elenmet_class, T[][] matrix) {
-        this.elenmet_class = elenmet_class;
-        this.row = matrix.length;
-        this.column = matrix[0].length;
-        this.matrix = matrix;
+    public static int row(double[][] A) {
+        return A.length;
     }
 
-    public Matrix<T> vector_product(Matrix<T> m) {
-        if (column != m.row) {
+    public static double[][] product(double[][] A, double[][] B) {
+        if (column(A) != row(B)) {
             throw new IllegalArgumentException("矩阵A的列数必须等于矩阵B的行数!");
         }
 
-        Matrix<T> r = new Matrix<>(elenmet_class, row , m.column);
+
+        int row = row(A);
+        int column = column(B);
+        double[][] M = new double[row][column];
+
         for (int x = 0; x < row; x++) {
-            for (int y = 0; y < m.column; y++) {
+            for (int y = 0; y < column; y++) {
                 double sum = 0.0;
-                for (int k = 0; k < column; k++) {
-                    double a = matrix[x][k].doubleValue();
-                    double b = m.matrix[k][y].doubleValue();
-                    sum += a*b;
+                for (int k = 0; k < column(A); k++) {
+                    double a = A[x][k];
+                    double b = B[k][y];
+                    sum += a * b;
                 }
-                r.matrix[x][y] = converyT(sum);
+                M[x][y] = sum;
             }
         }
-        return r;
+        return M;
     }
 
-    public Matrix<T> vector_add(Matrix<T> m) {
-        if (row == m.row && column == m.column) {
-            Matrix<T> r = new Matrix<>(elenmet_class, row, column);
+    public static double[][] transpose(double[][] A) {
+        int row = row(A);
+        int column = column(A);
+        double[][] M = new double[column][row];
+        for (int x = 0; x < row; x++) {
+             for (int y = 0; y < column; y++) {
+                 M[y][x] = A[x][y];
+             }
+        }
+        return M;
+    }
+
+
+
+    public double[][] add(double[][] A, double[][] B) {
+        if (row(A) == row(B) && column(A) == column(B)) {
+            int row = row(A);
+            int column = column(A);
+            double[][] M = new double[row][column];
 
             for (int x = 0; x < row; x++) {
                 for (int y = 0; y < column; y++) {
-                    r.matrix[x][y] = converyT(matrix[x][y].doubleValue() + m.matrix[x][y].doubleValue());
+                    M[x][y] = A[x][y] + B[x][y];
                 }
             }
-
-            return r;
+            return M;
         }
-
         throw new IllegalArgumentException("矩阵A的行列数必须等于矩阵B的行列数!");
-    }
-
-    private T converyT(double value) {
-        if (elenmet_class == Integer.class) {
-            return elenmet_class.cast((int) value);
-        }
-        else if (elenmet_class == Double.class) {
-            return elenmet_class.cast(value);
-        }
-        throw new UnsupportedOperationException("不支持运算的矩阵元素");
     }
 }
