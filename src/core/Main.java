@@ -18,7 +18,7 @@ public class Main {
         Model model = new Model("src/obj/diablo3_pose.obj");
 
         render.init_light(new Vec3(1, 1, 1));
-        for (int d = 0; d < 360; d++) {
+        for (int d = 0; d < 360; d += 10) {
             Color[][] scbuffer = new Color[WIDTH][HEIGHT];
 
             double n = d * Math.PI / 180.0;

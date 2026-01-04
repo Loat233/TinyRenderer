@@ -106,8 +106,6 @@ public class openGL {
         return new Color(r, g, b);
     }
 
-
-
     public void load_model(Model model ,Color[][] scbuffer) {
         if (model_view == null || rotate == null || perspective == null || viewport == null) {
             throw new IllegalArgumentException("先调用lookAt和camera函数！");
@@ -120,10 +118,17 @@ public class openGL {
             Vec3 a = new Vec3(Matrix.product(total_matrix, model.vert(i, 0).matrix()));
             Vec3 b = new Vec3(Matrix.product(total_matrix, model.vert(i, 1).matrix()));
             Vec3 c = new Vec3(Matrix.product(total_matrix, model.vert(i, 2).matrix()));
+
+            //获得三角形面上三个法向量
+            Vec3 n0 = new Vec3(Matrix.product(model_view, model.norm(i, 0).matrix()));
+            Vec3 n1 = new Vec3(Matrix.product(model_view, model.norm(i, 1).matrix()));
+            Vec3 n2 = new Vec3(Matrix.product(model_view, model.norm(i, 2).matrix()));
+
             Triangle tri = new Triangle(a, b, c);
+            Triangle vt_tri = new Triangle(n0, n1, n2);
             //调用shader
-            IShader shader = new IShader(tri, light, model_view);
-            rasterise(tri ,shader, scbuffer);
+            IShader shader = new IShader(light, model_view);
+            rasterise(tri, vt_tri, shader, scbuffer);
         }
 
         //遍历所有顶点
@@ -133,7 +138,7 @@ public class openGL {
          */
     }
 
-    public void rasterise(Triangle clip, IShader shader, Color[][] scbuffer) {
+    public void rasterise(Triangle clip, Triangle vt_tri, IShader shader, Color[][] scbuffer) {
         double sign_area = clip.sign_triangle_area();
 
         if (sign_area < 1) {
@@ -141,7 +146,7 @@ public class openGL {
         }
         for(int x = clip.bbminx(); x < clip.bbmaxx(); x++) {
             for (int y = clip.bbminy(); y < clip.bbmaxy(); y++) {
-                Vec3 p = new Vec3(x, y, 0);
+                Vec3 p = new Vec3(x + 0.5, y + 0.5, 0);
                 Triangle A = new Triangle(p, clip.b(), clip.c());
                 Triangle B = new Triangle(p, clip.a(), clip.b());
                 Triangle C = new Triangle(p, clip.c(), clip.a());
@@ -162,8 +167,14 @@ public class openGL {
                 }
                 zbuffer[x][y] = z;
 
-                int[] c = shader.fragment();
-                Color color = new Color(c[0], c[1], c[2]);
+                //计算该点的法向量n
+                Vec3 n0 = vt_tri.a().product(alpha);
+                Vec3 n1 = vt_tri.b().product(beta);
+                Vec3 n2 = vt_tri.c().product(gamma);
+                Vec3 n = n0.add(n1).add(n2);
+
+                double[] c = shader.fragment(n);
+                Color color = new Color((int) c[0], (int) c[1], (int) c[2]);
                 scbuffer[x][y] = color;
             }
         }

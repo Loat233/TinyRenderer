@@ -12,7 +12,7 @@ public class Triangle {
     }
 
     public double sign_triangle_area() {
-        return 0.5 * ((b.y() - a.y())*(b.x() + a.x()) + (a.y() - c.y())*(a.x() + c.x()) + (c.y() - b.y())*(c.x() + b.x()));
+        return 0.5 * ((b.x() - a.x())*(c.y() - a.y()) - (c.x() - a.x())*(b.y() - a.y()));
     }
 
     public int bbminx() {

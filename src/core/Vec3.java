@@ -26,9 +26,10 @@ public class Vec3 {
             this.matrix = M;
         }
         else if (Matrix.row(M) == 4) {
-            this.x = M[0][0];
-            this.y = M[1][0];
-            this.z = M[2][0];
+            double factor = M[3][0];
+            this.x = M[0][0] / factor;
+            this.y = M[1][0] / factor;
+            this.z = M[2][0] / factor;
             this.matrix = M;
         }
         else {
