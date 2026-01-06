@@ -49,18 +49,25 @@ public class MainThread extends JFrame{
         DataBuffer dest = screenBuffer.getRaster().getDataBuffer();
         screen = ((DataBufferInt)dest).getData();
 
+
+        //加载各种纹理
+        Texture diffuse_tex = new Texture("src/obj/diablo3_pose_diffuse.tga");
+        Texture norm_tex = new Texture("src/obj/diablo3_pose_nm.tga");
+        Texture spec_tex = new Texture("src/obj/diablo3_pose_spec.tga");
+        Texture glow_tex = new Texture("src/obj/diablo3_pose_glow.tga");
+
         //加载渲染器
         openGL renderer = new openGL(0, 0, Width, Height);
-        Texture texture = new Texture("src/obj/diablo3_pose_diffuse.tga");
         Model model = new Model("src/obj/diablo3_pose.obj");
-        renderer.init_light(new Vec3(1, 1, 1));
-        renderer.init_texture(texture);
+        renderer.init_light(new Vec3(0, 0, 1));
+        renderer.init_texture(norm_tex, diffuse_tex, spec_tex, glow_tex);
+
 
         //程序主循环
         int degree = 0;
         while(true) {
             render(renderer, model, degree);
-            degree += 10;
+            degree = (degree + 10) % 360;
             frameIndex++;
 
             //计算当前的刷新率，并尽量让刷新率保持恒定。
@@ -74,7 +81,8 @@ public class MainThread extends JFrame{
                 try {
                     Thread.sleep(1);
                     sleepTime++;
-                } catch (InterruptedException e1) {
+                }
+                catch (InterruptedException e1) {
                     e1.printStackTrace();
                 }
             }
@@ -88,7 +96,6 @@ public class MainThread extends JFrame{
             //把图像发画到显存
             panel.getGraphics().drawImage(screenBuffer, 0, 0, this);
         }
-
     }
 
     public void render(openGL renderer, Model model, int degree) {

@@ -8,7 +8,8 @@ import java.io.File;
 import java.util.Iterator;
 
 public class Texture {
-    private int width, height;
+    private int width;
+    private int height;
     private int[][] data;
 
     public Texture(String filename) {
@@ -58,16 +59,30 @@ public class Texture {
         }
     }
 
+    public Vec3 getNorm(double u, double v) {
+        int x = (int) (u * width);
+        int y = (int) (v * height);
+
+        int color = data[y][x];
+        double b = (color >> 16) & 0xFF;
+        double g = (color >> 8) & 0xFF;
+        double r = color & 0xFF;
+
+        double vx = (r / 255) * 2 - 1;
+        double vy = (g / 255) * 2 - 1;
+        double vz = (b / 255) * 2 - 1;
+
+        return new Vec3(vx, vy, vz);
+    }
+
     public double[] getRGB(double u, double v) {
         int x = (int)(u * width);
         int y = (int)(v * height);
-        x = Math.max(0, Math.min(width - 1, x));
-        y = Math.max(0, Math.min(height - 1, y));
 
         int color = data[y][x];
-        double r = ((color >> 16) & 0xFF);
-        double g = ((color >> 8) & 0xFF);
-        double b = (color & 0xFF);
+        double r = (color >> 16) & 0xFF;
+        double g = (color >> 8) & 0xFF;
+        double b = color & 0xFF;
         return new double[]{r, g, b};
     }
 }

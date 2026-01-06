@@ -7,30 +7,25 @@ import java.io.IOException;
 import java.util.List;
 
 public class Model {
-    private List<Vec3> verts;        // 顶点数组
-    private List<Vec3> norms;        // 法向量数组
-    private List<Vec2> texCoords;    // 纹理坐标数组
-    private List<Integer> facet_vrt; // 每个三角形在顶点数组中的索引
-    private List<Integer> facet_nrm; // 每个三角形在法向量数组中的索引
-    private List<Integer> facet_tex; // 每个三角形在纹理坐标数组中的索引
+    private final List<Vec3> verts;        // 顶点数组
+    private final List<Vec3> norms;        // 法向量数组
+    private final List<Vec2> texCoords;    // 纹理坐标数组
+
+    private final List<Integer> facet_vrt; // 每个三角形在顶点数组中的索引
+    private final List<Integer> facet_nrm; // 每个三角形在法向量数组中的索引
+    private final List<Integer> facet_tex; // 每个三角形在纹理坐标数组中的索引
 
     public Model(String filename) {
         this.verts = new ArrayList<>();
         this.norms = new ArrayList<>();
-        this.texCoords = new ArrayList<>();  // 新增
+        this.texCoords = new ArrayList<>();
+
         this.facet_vrt = new ArrayList<>();
         this.facet_nrm = new ArrayList<>();
-        this.facet_tex = new ArrayList<>();  // 新增
+        this.facet_tex = new ArrayList<>();
         loadModel(filename);
     }
 
-    /**
-     * 加载OBJ格式的3D模型文件
-     * 顶点格式: v x y z
-     * 纹理坐标格式: vt u v [w]
-     * 法向量格式: vn x y z
-     * 面格式: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3
-     */
     private void loadModel(String filename) {
         try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
             String line;
@@ -39,21 +34,20 @@ public class Model {
                 if (line.isEmpty()) continue;
 
                 if (line.startsWith("v ")) {
-                    // 处理顶点行
-                    processVertexLine(line);
-                } else if (line.startsWith("vt ")) {
-                    // 处理纹理坐标行（新增）
-                    processTextureCoordLine(line);
-                } else if (line.startsWith("vn ")) {
-                    // 处理法向量行
-                    processNormalLine(line);
-                } else if (line.startsWith("f ")) {
-                    // 处理面行
-                    processFaceLine(line);
+                    processVertexLine(line);    // 处理顶点行
                 }
-                // 忽略其他行（注释等）
+                else if (line.startsWith("vt ")) {
+                    processTextureCoordLine(line);    // 处理纹理坐标行
+                }
+                else if (line.startsWith("vn ")) {
+                    processNormalLine(line);    // 处理法向量行
+                }
+                else if (line.startsWith("f ")) {
+                    processFaceLine(line);      // 处理面行
+                }
             }
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             System.err.println("无法读取模型文件: " + filename);
         }
     }
@@ -69,7 +63,8 @@ public class Model {
                 double y = Double.parseDouble(parts[2]);
                 double z = Double.parseDouble(parts[3]);
                 verts.add(new Vec3(x, y, z));
-            } catch (NumberFormatException e) {
+            }
+            catch (NumberFormatException e) {
                 System.err.println("顶点数据格式错误: " + line);
             }
         }
@@ -88,10 +83,12 @@ public class Model {
                 double v = Double.parseDouble(parts[2]);
                 // 如果存在w分量，忽略它
                 texCoords.add(new Vec2(u, v));
-            } catch (NumberFormatException e) {
+            }
+            catch (NumberFormatException e) {
                 System.err.println("纹理坐标数据格式错误: " + line);
             }
-        } else {
+        }
+        else {
             System.err.println("纹理坐标数据不完整: " + line);
         }
     }
@@ -107,20 +104,13 @@ public class Model {
                 double y = Double.parseDouble(parts[2]);
                 double z = Double.parseDouble(parts[3]);
                 norms.add(new Vec3(x, y, z));
-            } catch (NumberFormatException e) {
+            }
+            catch (NumberFormatException e) {
                 System.err.println("法向量数据格式错误: " + line);
             }
         }
     }
 
-    /**
-     * 处理面行: f 1193/1240/1193 1180/1227/1180 1179/1226/1179
-     * 现在支持多种格式：
-     * - f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 (完整格式)
-     * - f v1//vn1 v2//vn2 v3//vn3 (缺少纹理坐标)
-     * - f v1/vt1 v2/vt2 v3/vt3 (缺少法向量)
-     * - f v1 v2 v3 (只有顶点)
-     */
     private void processFaceLine(String line) {
         String[] parts = line.split("\\s+");
 
@@ -164,7 +154,8 @@ public class Model {
                         normalIndex = Integer.parseInt(vertexComponents[2]) - 1;
                     }
 
-                } catch (NumberFormatException e) {
+                }
+                catch (NumberFormatException e) {
                     System.err.println("顶点描述格式错误: " + vertexDescription);
                     continue;
                 }
@@ -176,7 +167,8 @@ public class Model {
                         continue;
                     }
                     faceVertexIndices.add(vertexIndex);
-                } else {
+                }
+                else {
                     System.err.println("顶点索引缺失: " + vertexDescription);
                     continue;
                 }
@@ -187,10 +179,12 @@ public class Model {
                         System.err.println("纹理坐标索引越界: " + (textureIndex + 1) + " (最大: " + texCoords.size() + ")");
                         // 不中断处理，继续使用-1表示缺失
                         faceTextureIndices.add(-1);
-                    } else {
+                    }
+                    else {
                         faceTextureIndices.add(textureIndex);
                     }
-                } else {
+                }
+                else {
                     faceTextureIndices.add(-1); // 使用-1表示纹理坐标缺失
                 }
 
@@ -200,14 +194,17 @@ public class Model {
                         System.err.println("法向量索引越界: " + (normalIndex + 1) + " (最大: " + norms.size() + ")");
                         // 不中断处理，继续使用-1表示缺失
                         faceNormalIndices.add(-1);
-                    } else {
+                    }
+                    else {
                         faceNormalIndices.add(normalIndex);
                     }
-                } else {
+                }
+                else {
                     faceNormalIndices.add(-1); // 使用-1表示法向量缺失
                 }
 
-            } else {
+            }
+            else {
                 // 简单格式：只有顶点索引
                 try {
                     int vertexIndex = Integer.parseInt(vertexDescription) - 1;
@@ -221,7 +218,8 @@ public class Model {
                     faceTextureIndices.add(-1); // 纹理坐标缺失
                     faceNormalIndices.add(-1); // 法向量缺失
 
-                } catch (NumberFormatException e) {
+                }
+                catch (NumberFormatException e) {
                     System.err.println("顶点索引格式错误: " + vertexDescription);
                 }
             }
@@ -299,11 +297,18 @@ public class Model {
         }
     }
 
-    // 顶点相关方法
+    // 面相关方法
+    public int nfaces() {
+        return facet_vrt.size() / 3;
+    }
+
+
+    // 获取顶点数量
     public int nverts() {
         return verts.size();
     }
 
+    // 获取索引为i的顶点
     public Vec3 vert(int i) {
         if (i < 0 || i >= verts.size()) {
             throw new IndexOutOfBoundsException("顶点索引越界: " + i);
@@ -311,35 +316,7 @@ public class Model {
         return verts.get(i);
     }
 
-    // 纹理坐标相关方法
-    public int ntexcoords() {
-        return texCoords.size();
-    }
-
-    public Vec2 texcoord(int i) {
-        if (i < 0 || i >= texCoords.size()) {
-            throw new IndexOutOfBoundsException("纹理坐标索引越界: " + i);
-        }
-        return texCoords.get(i);
-    }
-
-    // 法向量相关方法
-    public int nnorms() {
-        return norms.size();
-    }
-
-    public Vec3 norm(int i) {
-        if (i < 0 || i >= norms.size()) {
-            throw new IndexOutOfBoundsException("法向量索引越界: " + i);
-        }
-        return norms.get(i);
-    }
-
-    // 面相关方法
-    public int nfaces() {
-        return facet_vrt.size() / 3;
-    }
-
+    //获取索引为iface的面内的顶点
     public Vec3 vert(int iface, int nthvert) {
         if (iface < 0 || iface >= nfaces()) {
             throw new IndexOutOfBoundsException("面索引越界: " + iface);
@@ -352,7 +329,20 @@ public class Model {
         return verts.get(vertexIndex);
     }
 
-    // 获取面中特定顶点的纹理坐标
+    // 获取纹理顶点数量
+    public int ntexcoords() {
+        return texCoords.size();
+    }
+
+    // 获取索引为i的纹理顶点
+    public Vec2 texcoord(int i) {
+        if (i < 0 || i >= texCoords.size()) {
+            throw new IndexOutOfBoundsException("纹理坐标索引越界: " + i);
+        }
+        return texCoords.get(i);
+    }
+
+    // 获得索引为iface的面内的纹理顶点
     public Vec2 texcoord(int iface, int nthvert) {
         if (iface < 0 || iface >= nfaces()) {
             throw new IndexOutOfBoundsException("面索引越界: " + iface);
@@ -368,6 +358,20 @@ public class Model {
         return texCoords.get(texIndex);
     }
 
+    // 获取法向量数量
+    public int nnorms() {
+        return norms.size();
+    }
+
+    // 获取索引为i的法向量
+    public Vec3 norm(int i) {
+        if (i < 0 || i >= norms.size()) {
+            throw new IndexOutOfBoundsException("法向量索引越界: " + i);
+        }
+        return norms.get(i);
+    }
+
+    // 获取索引为iface的面内的法向量
     public Vec3 norm(int iface, int nthvert) {
         if (iface < 0 || iface >= nfaces()) {
             throw new IndexOutOfBoundsException("面索引越界: " + iface);
@@ -382,6 +386,10 @@ public class Model {
         }
         return norms.get(normalIndex);
     }
+
+
+
+
 
     /**
      * 打印模型信息（用于调试）

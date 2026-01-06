@@ -13,7 +13,10 @@ public class openGL {
     private double[][] total_matrix;
 
     private Vec3 light;
-    private Texture texture;
+
+    //各种纹理
+    private Texture[] textures;
+
 
     private double[][] zbuffer;
 
@@ -68,8 +71,13 @@ public class openGL {
         this.light = light;
     }
 
-    public void init_texture(Texture texture) {
-        this.texture = texture;
+    //纹理顺序:norm, diffuse, spec, glow
+    public void init_texture(Texture norm, Texture diffuse, Texture spec, Texture glow) {
+        textures = new Texture[4];
+        textures[0] = norm;
+        textures[1] = diffuse;
+        textures[2] = spec;
+        textures[3] = glow;
     }
 
     private void init_rotate(double d) {
@@ -106,10 +114,7 @@ public class openGL {
         if (model_view == null || rotate == null || perspective == null || viewport == null) {
             throw new IllegalArgumentException("先调用lookAt和camera函数！");
         }
-        if (texture == null) {
-            texture = new Texture("");
-            System.out.println("使用default纹理图片");
-        }
+
         //清空zbuffer
         init_zbuffer();
         //遍历所有三角形
@@ -124,14 +129,13 @@ public class openGL {
                 tex_verts[j] = model.texcoord(i, j);
             }
 
-            System.out.println();
             Vertex a = new Vertex(coords[0], norms[0], tex_verts[0]);
             Vertex b = new Vertex(coords[1], norms[1], tex_verts[1]);
             Vertex c = new Vertex(coords[2], norms[2], tex_verts[2]);
 
             Fragment clip = new Fragment(a, b, c);
             //调用shader
-            IShader shader = new IShader(light, texture, model_view);
+            IShader shader = new IShader(light, textures, model_view);
             rasterise(clip, shader, screen);
         }
     }
@@ -154,7 +158,9 @@ public class openGL {
                 double gamma = sign_triangle_area(p, c, a) / sign_area;
                 double z = alpha * a.z() + beta * b.z() + gamma * c.z();
 
-                if (alpha < 0 || beta < 0 || gamma < 0) {
+                //允许小的容差值
+                final double Epsilon = 0.0001;
+                if (alpha < -Epsilon || beta < -Epsilon || gamma < -Epsilon) {
                     continue;
                 }
                 if (x < 0 || y < 0 || x >= Width || y >= Height) {
@@ -166,11 +172,18 @@ public class openGL {
                 zbuffer[y][x] = z;
 
                 //计算该点重心插值后的法向量，纹理坐标
-                Vec3 n = clip.norm_interpolate(alpha, beta, gamma);
-                Vec2 t = clip.tex_interpolate(alpha, beta, gamma);
+                double[] colors;
+                if (textures[0] == null) {
+                    Vec3 n = clip.norm_interpolate(alpha, beta, gamma);
+                    Vec2 t = clip.tex_interpolate(alpha, beta, gamma);
+                    colors = shader.fragment(n, t);
+                }
+                else {
+                    Vec2 t = clip.tex_interpolate(alpha, beta, gamma);
+                    colors = shader.fragment(t);
+                }
 
                 //对该像素点着色
-                double[] colors = shader.fragment(n, t);
                 int R = (int) colors[0];
                 int G = (int) colors[1];
                 int B = (int) colors[2];
@@ -185,11 +198,11 @@ public class openGL {
     }
 
     public static int bbmin(double x0, double x1, double x2) {
-        return (int) Math.min(Math.min(x0, x1), x2);
+        return (int) Math.floor(Math.min(Math.min(x0, x1), x2));    //边界框向下取整
     }
 
     public static int bbmax(double x0, double x1, double x2) {
-        return (int) Math.max(Math.max(x0, x1), x2);
+        return (int) Math.ceil(Math.max(Math.max(x0, x1), x2));     //边界框向上取整
     }
 
     private void line(int ax, int ay, int bx, int by, Color color, Color[][] scbuffer) {
