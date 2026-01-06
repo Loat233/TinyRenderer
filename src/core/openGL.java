@@ -102,7 +102,7 @@ public class openGL {
         };
     }
 
-    public void load_model(Model model ,Color[][] scbuffer) {
+    public void render_model(Model model , int[] screen) {
         if (model_view == null || rotate == null || perspective == null || viewport == null) {
             throw new IllegalArgumentException("先调用lookAt和camera函数！");
         }
@@ -132,11 +132,11 @@ public class openGL {
             Fragment clip = new Fragment(a, b, c);
             //调用shader
             IShader shader = new IShader(light, texture, model_view);
-            rasterise(clip, shader, scbuffer);
+            rasterise(clip, shader, screen);
         }
     }
 
-    public void rasterise(Fragment clip, IShader shader, Color[][] scbuffer) {
+    public void rasterise(Fragment clip, IShader shader, int[] screen) {
         Vec3 a = clip.a().coord();
         Vec3 b = clip.b().coord();
         Vec3 c = clip.c().coord();
@@ -160,10 +160,10 @@ public class openGL {
                 if (x < 0 || y < 0 || x >= Width || y >= Height) {
                     continue;
                 }
-                if (z <= zbuffer[x][y]) {
+                if (z <= zbuffer[y][x]) {
                     continue;
                 }
-                zbuffer[x][y] = z;
+                zbuffer[y][x] = z;
 
                 //计算该点重心插值后的法向量，纹理坐标
                 Vec3 n = clip.norm_interpolate(alpha, beta, gamma);
@@ -171,8 +171,11 @@ public class openGL {
 
                 //对该像素点着色
                 double[] colors = shader.fragment(n, t);
-                Color color = new Color((int) colors[0], (int) colors[1], (int) colors[2]);
-                scbuffer[x][y] = color;
+                int R = (int) colors[0];
+                int G = (int) colors[1];
+                int B = (int) colors[2];
+                int screenY = Height - 1 - y;
+                screen[x + screenY * Width] = (R << 16) | (G << 8) | B;
             }
         }
     }

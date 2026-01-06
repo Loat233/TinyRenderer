@@ -3,9 +3,9 @@ package core;
 import org.w3c.dom.events.EventException;
 
 public class Vertex {
-    private final Vec3 coord; // the coordinate of the vertex
-    private final Vec3 norm_vector; // the normal vector of the vertex
-    private final Vec2 tex_verts; // the vertices from texture response to the vertex
+    private final Vec3 coord; // 顶点的在空间中的坐标
+    private final Vec3 norm_vector; // 顶点对应的法向量
+    private final Vec2 tex_verts; // 顶点对应的纹理坐标
 
     public Vertex(Vec3 coord, Vec3 norm_vector, Vec2 tex_verts) {
         this.coord = coord;
