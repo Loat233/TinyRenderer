@@ -2,12 +2,13 @@ package core;
 
 import edu.princeton.cs.algs4.StdDraw;
 
+import javax.swing.*;
 import java.awt.*;
 
 public class Main {
     public static void main(String[] args) {
-        int WIDTH = 800;
-        int HEIGHT = 800;
+        final int WIDTH = 800;
+        final int HEIGHT = 800;
 
         StdDraw.setCanvasSize(WIDTH, HEIGHT);
         StdDraw.enableDoubleBuffering();
@@ -15,9 +16,11 @@ public class Main {
         StdDraw.setYscale(0, HEIGHT);
 
         openGL render = new openGL(0, 0, WIDTH, HEIGHT);
+        Texture texture = new Texture("src/obj/diablo3_pose_diffuse.tga");
         Model model = new Model("src/obj/diablo3_pose.obj");
 
         render.init_light(new Vec3(1, 1, 1));
+        render.init_texture(texture);
         for (int d = 0; d < 360; d += 10) {
             Color[][] scbuffer = new Color[WIDTH][HEIGHT];
 
@@ -46,4 +49,8 @@ public class Main {
             StdDraw.clear();
         }
     }
+}
+
+class Panel extends JPanel {
+
 }

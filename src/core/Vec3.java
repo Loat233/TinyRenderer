@@ -37,20 +37,20 @@ public class Vec3 {
         }
     }
 
-    public double product(Vec3 n) {
-        return x * n.x + y * n.y + z * n.z;
-    }
-
-    public Vec3 product(double n) {
-        return new Vec3(x * n, y * n, z * n);
+    public Vec3 add(Vec3 v) {
+        return new Vec3(x + v.x, y + v.y, z + v.z);
     }
 
     public Vec3 minus(Vec3 v) {
         return new Vec3(x - v.x, y - v.y, z - v.z);
     }
 
-    public Vec3 add(Vec3 v) {
-        return new Vec3(x + v.x, y + v.y, z + v.z);
+    public double product(Vec3 n) {
+        return x * n.x + y * n.y + z * n.z;
+    }
+
+    public Vec3 product(double n) {
+        return new Vec3(x * n, y * n, z * n);
     }
 
     public Vec3 cross(Vec3 v) {
@@ -63,6 +63,10 @@ public class Vec3 {
     public Vec3 normalize() {
         double length = Math.sqrt(x * x + y * y + z * z);
         return new Vec3(x / length, y / length, z /length);
+    }
+
+    public double norm() {
+        return Math.sqrt(x * x + y * y + z * z);
     }
 
     public void transpose() {
@@ -81,9 +85,6 @@ public class Vec3 {
         return z;
     }
 
-    public double norm() {
-        return Math.sqrt(x * x + y * y + z * z);
-    }
     public double[][] matrix() {
         return matrix;
     }

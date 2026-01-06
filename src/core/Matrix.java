@@ -14,7 +14,6 @@ public class Matrix {
             throw new IllegalArgumentException("矩阵A的列数必须等于矩阵B的行数!");
         }
 
-
         int row = row(A);
         int column = column(B);
         double[][] M = new double[row][column];

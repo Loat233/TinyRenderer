@@ -1,7 +1,6 @@
 package core;
 
 import java.awt.*;
-import java.util.Random;
 
 public class openGL {
     private final int Height;
@@ -12,7 +11,9 @@ public class openGL {
     private double[][] perspective;
     private double[][] viewport;
     private double[][] total_matrix;
+
     private Vec3 light;
+    private Texture texture;
 
     private double[][] zbuffer;
 
@@ -23,6 +24,7 @@ public class openGL {
         init_zbuffer();
     }
 
+    //用于计算model_view矩阵
     public void lookAt(Vec3 eye, Vec3 center, Vec3 up) {
         Vec3 z_axis = eye.minus(center).normalize();
         Vec3 x_axis = up.cross(z_axis).normalize();
@@ -53,8 +55,6 @@ public class openGL {
         this.total_matrix = matrix;
     }
 
-
-
     private void init_zbuffer() {
         zbuffer = new double[Height][Width];
         for (int y = 0; y < Height; y++) {
@@ -66,6 +66,10 @@ public class openGL {
 
     public void init_light(Vec3 light) {
         this.light = light;
+    }
+
+    public void init_texture(Texture texture) {
+        this.texture = texture;
     }
 
     private void init_rotate(double d) {
@@ -98,63 +102,57 @@ public class openGL {
         };
     }
 
-    private static Color pick_ramdom_color() {
-        Random random = new Random();
-        int r = random.nextInt(256);
-        int g = random.nextInt(256);
-        int b = random.nextInt(256);
-        return new Color(r, g, b);
-    }
-
     public void load_model(Model model ,Color[][] scbuffer) {
         if (model_view == null || rotate == null || perspective == null || viewport == null) {
             throw new IllegalArgumentException("先调用lookAt和camera函数！");
+        }
+        if (texture == null) {
+            texture = new Texture("");
+            System.out.println("使用default纹理图片");
         }
         //清空zbuffer
         init_zbuffer();
         //遍历所有三角形
         for(int i = 0; i < model.nfaces();i++) {
-            //获得三角形面上的三个顶点
-            Vec3 a = new Vec3(Matrix.product(total_matrix, model.vert(i, 0).matrix()));
-            Vec3 b = new Vec3(Matrix.product(total_matrix, model.vert(i, 1).matrix()));
-            Vec3 c = new Vec3(Matrix.product(total_matrix, model.vert(i, 2).matrix()));
+            //获取三角形面上的三个顶点对应的坐标，法向量，纹理坐标
+            Vec3[] coords = new Vec3[3];
+            Vec3[] norms = new Vec3[3];
+            Vec2[] tex_verts = new Vec2[3];
+            for(int j = 0; j < 3; j++) {
+                coords[j] = new Vec3(Matrix.product(total_matrix, model.vert(i, j).matrix()));
+                norms[j] = new Vec3(Matrix.product(model_view, model.norm(i, j).matrix()));
+                tex_verts[j] = model.texcoord(i, j);
+            }
 
-            //获得三角形面上三个法向量
-            Vec3 n0 = new Vec3(Matrix.product(model_view, model.norm(i, 0).matrix()));
-            Vec3 n1 = new Vec3(Matrix.product(model_view, model.norm(i, 1).matrix()));
-            Vec3 n2 = new Vec3(Matrix.product(model_view, model.norm(i, 2).matrix()));
+            System.out.println();
+            Vertex a = new Vertex(coords[0], norms[0], tex_verts[0]);
+            Vertex b = new Vertex(coords[1], norms[1], tex_verts[1]);
+            Vertex c = new Vertex(coords[2], norms[2], tex_verts[2]);
 
-            Triangle tri = new Triangle(a, b, c);
-            Triangle vt_tri = new Triangle(n0, n1, n2);
+            Fragment clip = new Fragment(a, b, c);
             //调用shader
-            IShader shader = new IShader(light, model_view);
-            rasterise(tri, vt_tri, shader, scbuffer);
+            IShader shader = new IShader(light, texture, model_view);
+            rasterise(clip, shader, scbuffer);
         }
-
-        //遍历所有顶点
-        /*  for (int i = 0; i < model.nverts(); i++) {
-                Vec3 v = new Vec3(transform(model.vert(i).matrix()));
-        }
-         */
     }
 
-    public void rasterise(Triangle clip, Triangle vt_tri, IShader shader, Color[][] scbuffer) {
-        double sign_area = clip.sign_triangle_area();
+    public void rasterise(Fragment clip, IShader shader, Color[][] scbuffer) {
+        Vec3 a = clip.a().coord();
+        Vec3 b = clip.b().coord();
+        Vec3 c = clip.c().coord();
+        double sign_area = sign_triangle_area(a, b, c);
 
         if (sign_area < 1) {
             return;
         }
-        for(int x = clip.bbminx(); x < clip.bbmaxx(); x++) {
-            for (int y = clip.bbminy(); y < clip.bbmaxy(); y++) {
+        for(int x = bbmin(a.x(), b.x(), c.x()); x < bbmax(a.x(), b.x(), c.x()); x++) {
+            for (int y = bbmin(a.y(), b.y(), c.y()); y < bbmax(a.y(), b.y(), c.y()); y++) {
                 Vec3 p = new Vec3(x + 0.5, y + 0.5, 0);
-                Triangle A = new Triangle(p, clip.b(), clip.c());
-                Triangle B = new Triangle(p, clip.a(), clip.b());
-                Triangle C = new Triangle(p, clip.c(), clip.a());
 
-                double alpha = A.sign_triangle_area() / sign_area;
-                double beta = B.sign_triangle_area() / sign_area;
-                double gamma = C.sign_triangle_area() / sign_area;
-                double z = alpha * clip.a().z() + beta * clip.b().z() + gamma * clip.c().z();
+                double alpha = sign_triangle_area(p, b, c) / sign_area;
+                double beta = sign_triangle_area(p, a, b) / sign_area;
+                double gamma = sign_triangle_area(p, c, a) / sign_area;
+                double z = alpha * a.z() + beta * b.z() + gamma * c.z();
 
                 if (alpha < 0 || beta < 0 || gamma < 0) {
                     continue;
@@ -167,17 +165,28 @@ public class openGL {
                 }
                 zbuffer[x][y] = z;
 
-                //计算该点的法向量n
-                Vec3 n0 = vt_tri.a().product(alpha);
-                Vec3 n1 = vt_tri.b().product(beta);
-                Vec3 n2 = vt_tri.c().product(gamma);
-                Vec3 n = n0.add(n1).add(n2);
+                //计算该点重心插值后的法向量，纹理坐标
+                Vec3 n = clip.norm_interpolate(alpha, beta, gamma);
+                Vec2 t = clip.tex_interpolate(alpha, beta, gamma);
 
-                double[] c = shader.fragment(n);
-                Color color = new Color((int) c[0], (int) c[1], (int) c[2]);
+                //对该像素点着色
+                double[] colors = shader.fragment(n, t);
+                Color color = new Color((int) colors[0], (int) colors[1], (int) colors[2]);
                 scbuffer[x][y] = color;
             }
         }
+    }
+
+    private static double sign_triangle_area(Vec3 a, Vec3 b, Vec3 c) {
+        return 0.5 * ((b.x() - a.x())*(c.y() - a.y()) - (c.x() - a.x())*(b.y() - a.y()));
+    }
+
+    public static int bbmin(double x0, double x1, double x2) {
+        return (int) Math.min(Math.min(x0, x1), x2);
+    }
+
+    public static int bbmax(double x0, double x1, double x2) {
+        return (int) Math.max(Math.max(x0, x1), x2);
     }
 
     private void line(int ax, int ay, int bx, int by, Color color, Color[][] scbuffer) {
