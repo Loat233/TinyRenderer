@@ -25,6 +25,11 @@ public class Vec2 {
         return x * n.x + y * n.y;
     }
 
+    public Vec2 normalize() {
+        double length = Math.sqrt(x * x + y * y);
+        return new Vec2(x / length, y / length);
+    }
+
     public double x() {
         return x;
     }

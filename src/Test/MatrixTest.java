@@ -46,4 +46,17 @@ public class MatrixTest {
         v.transpose();
         System.out.printf("row: %d, column: %d", Matrix.row(v.matrix()), Matrix.column(v.matrix()));
     }
+
+    @Test
+    public void  inverse_test() {
+        double[][] matrix = new double[][]{
+                {4, 1, 0, 0},
+                {1, 4, 1, 0},
+                {0, 1, 4, 1},
+                {0, 0, 1, 4}
+        };
+
+        matrix = Matrix.inverse(matrix);
+        System.out.println();
+    }
 }

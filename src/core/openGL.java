@@ -10,25 +10,68 @@ public class openGL {
     private double[][] rotate;
     private double[][] perspective;
     private double[][] viewport;
-    private double[][] total_matrix;
+    //  合并矩阵
+    private double[][] globalToEyeMatrix;
+    private double[][] normMatrix;
+    private double[][] eyeToScreenMatrix;
 
     private Vec3 light;
-
-    //各种纹理
-    private Texture[] textures;
-
-
     private double[][] zbuffer;
+    //  各种纹理
+    private Texture[] textures;
+    //  设置翻转
+    private boolean isUpsideDown;
+    //  模型自旋转角度
+    private double degree;
+
 
     public openGL(int x, int y, int Width, int Height){
         this.Width = Width;
         this.Height = Height;
         init_viewport(x, y, Width, Height);
         init_zbuffer();
+        isUpsideDown = false;
+        degree = 0.0;
     }
 
-    //用于计算model_view矩阵
-    public void lookAt(Vec3 eye, Vec3 center, Vec3 up) {
+    private void init_viewport(int x, int y, int w, int h) {
+        double a = w / 2.0;
+        double b = h / 2.0;
+        double c = 255 / 2.0;
+        viewport = new double[][] {
+                {a, 0, 0, x+a},
+                {0, b, 0, y+b},
+                {0, 0, c, c},
+                {0, 0, 0, 1}
+        };
+    }
+
+    private void init_zbuffer() {
+        zbuffer = new double[Height][Width];
+        for (int y = 0; y < Height; y++) {
+            for (int x = 0; x < Width; x++) {
+                zbuffer[y][x] = Double.NEGATIVE_INFINITY;
+            }
+        }
+    }
+
+
+
+    public void init_light(Vec3 light) {
+        this.light = light;
+    }
+
+    //  纹理顺序:norm, diffuse, spec, glow
+    public void init_texture(Texture norm, Texture diffuse, Texture spec, Texture glow) {
+        textures = new Texture[4];
+        textures[0] = norm;
+        textures[1] = diffuse;
+        textures[2] = spec;
+        textures[3] = glow;
+    }
+
+    //  用于计算model_view矩阵
+    public void camera(Vec3 eye, Vec3 center, Vec3 up, double fol) {
         Vec3 z_axis = eye.minus(center).normalize();
         Vec3 x_axis = up.cross(z_axis).normalize();
         Vec3 y_axis = z_axis.cross(x_axis).normalize();
@@ -46,40 +89,37 @@ public class openGL {
                 {0, 0, 0, 1}
         };
         model_view = Matrix.product(coordinate, transpose_center);
-    }
-
-    public void camera(double degree, double fol) {
-        init_rotate(degree);
         init_perspective(fol);
+    }
+    private void init_perspective(double f) {
+        /*  标准透视矩阵计算
+        fov = fov * Math.PI / 180.0;
+        double fh = Math.tan(fov / 2);
+        double aspect = (double) Width / (double) Height;
 
-        double[][] matrix = Matrix.product(viewport, perspective);
-        matrix = Matrix.product(matrix, rotate);
-        matrix = Matrix.product(matrix, model_view);
-        this.total_matrix = matrix;
+        perspective = new double[][] {
+                {fh, 0, 0, 0},
+                {0, fh * aspect, 0, 0},
+                {0, 0, (f + n) / (n - f), 2 * f * n / (n - f)},
+                {0, 0, -1, 0}
+        };
+         */
+        perspective = new double[][] {
+                {1, 0, 0, 0},
+                {0, 1, 0, 0},
+                {0, 0, 1, 0},
+                {0, 0, -1/f, 1}
+        };
     }
 
-    private void init_zbuffer() {
-        zbuffer = new double[Height][Width];
-        for (int y = 0; y < Height; y++) {
-            for (int x = 0; x < Width; x++) {
-                zbuffer[y][x] = -1000;
-            }
+    //  模型围绕center点旋转
+    public void model_direct(double degree) {
+        if (degree != 0.0) {
+            this.degree = degree;
+            init_rotate(degree);
         }
+        init_matrix();
     }
-
-    public void init_light(Vec3 light) {
-        this.light = light;
-    }
-
-    //纹理顺序:norm, diffuse, spec, glow
-    public void init_texture(Texture norm, Texture diffuse, Texture spec, Texture glow) {
-        textures = new Texture[4];
-        textures[0] = norm;
-        textures[1] = diffuse;
-        textures[2] = spec;
-        textures[3] = glow;
-    }
-
     private void init_rotate(double d) {
         rotate = new double[][]{
                 {Math.cos(d), 0.0, Math.sin(d), 0.0},
@@ -89,61 +129,65 @@ public class openGL {
         };
     }
 
-    private void init_perspective(double f) {
-        perspective = new double[][] {
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {0, 0, -1/f, 1}
-        };
+    private void init_matrix() {
+        this.eyeToScreenMatrix = Matrix.product(viewport, perspective);
+        if (degree == 0) {
+            globalToEyeMatrix = model_view;
+        }
+        else {
+            globalToEyeMatrix = Matrix.product(rotate, model_view);
+        }
+        double[][] inverse = Matrix.inverse(globalToEyeMatrix);
+        this.normMatrix = Matrix.transpose(inverse);
     }
 
-    private void init_viewport(int x, int y, int w, int h) {
-        double a = w / 2.0;
-        double b = h / 2.0;
-        double c = 255 / 2.0;
-        viewport = new double[][] {
-                {a, 0, 0, x+a},
-                {0, b, 0, y+b},
-                {0, 0, c, c},
-                {0, 0, 0, 1}
-        };
-    }
+
 
     public void render_model(Model model , int[] screen) {
-        if (model_view == null || rotate == null || perspective == null || viewport == null) {
-            throw new IllegalArgumentException("先调用lookAt和camera函数！");
+        if (model_view == null || perspective == null || viewport == null) {
+            throw new IllegalArgumentException("先调用camera函数！");
         }
 
-        //清空zbuffer
+        //  清空zbuffer
         init_zbuffer();
-        //遍历所有三角形
+        //  遍历所有三角形
         for(int i = 0; i < model.nfaces();i++) {
-            //获取三角形面上的三个顶点对应的坐标，法向量，纹理坐标
-            Vec3[] coords = new Vec3[3];
-            Vec3[] norms = new Vec3[3];
-            Vec2[] tex_verts = new Vec2[3];
+            //  获取三角形面上的三个顶点对应的eye坐标,屏幕坐标,eye空间的法向量,纹理坐标, 以及3个顶点在3D空间的w分量
+            Vec3[] eye_coords = new Vec3[3];
+            Vec3[] view_coords = new Vec3[3];
+            Vec3[] eye_norms = new Vec3[3];
+            Vec2[] tex_coords = new Vec2[3];
+
             for(int j = 0; j < 3; j++) {
-                coords[j] = new Vec3(Matrix.product(total_matrix, model.vert(i, j).matrix()));
-                norms[j] = new Vec3(Matrix.product(model_view, model.norm(i, j).matrix()));
-                tex_verts[j] = model.texcoord(i, j);
+                //  计算顶点的eye空间坐标
+                double[][] M = Matrix.product(globalToEyeMatrix, model.vert(i, j).matrix());
+                eye_coords[j] = new Vec3(M[0][0], M[1][0], M[2][0]);
+                //  计算顶点的屏幕坐标
+                M = Matrix.product(eyeToScreenMatrix, M);
+                view_coords[j] = new Vec3(M);    //  这里会进行透视除法
+                //  利用文件提供的顶点在global空间的法向量，计算顶点在eye空间的法向量
+                eye_norms[j] = new Vec3(Matrix.product(normMatrix, model.norm(i, j).matrix()));
+                tex_coords[j] = model.texcoord(i, j);
             }
 
-            Vertex a = new Vertex(coords[0], norms[0], tex_verts[0]);
-            Vertex b = new Vertex(coords[1], norms[1], tex_verts[1]);
-            Vertex c = new Vertex(coords[2], norms[2], tex_verts[2]);
+            Vertex a = new Vertex(eye_coords[0], view_coords[0], eye_norms[0], tex_coords[0]);
+            Vertex b = new Vertex(eye_coords[1], view_coords[1], eye_norms[1], tex_coords[1]);
+            Vertex c = new Vertex(eye_coords[2], view_coords[2], eye_norms[2], tex_coords[2]);
 
             Fragment clip = new Fragment(a, b, c);
-            //调用shader
-            IShader shader = new IShader(light, textures, model_view);
+            //  调用shader
+            IShader shader = new IShader(light, textures, globalToEyeMatrix);
             rasterise(clip, shader, screen);
         }
     }
 
+
+
     public void rasterise(Fragment clip, IShader shader, int[] screen) {
-        Vec3 a = clip.a().coord();
-        Vec3 b = clip.b().coord();
-        Vec3 c = clip.c().coord();
+        Vec3 a = clip.a().view_coord();
+        Vec3 b = clip.b().view_coord();
+        Vec3 c = clip.c().view_coord();
+
         double sign_area = sign_triangle_area(a, b, c);
 
         if (sign_area < 1) {
@@ -153,13 +197,14 @@ public class openGL {
             for (int y = bbmin(a.y(), b.y(), c.y()); y < bbmax(a.y(), b.y(), c.y()); y++) {
                 Vec3 p = new Vec3(x + 0.5, y + 0.5, 0);
 
+                //  计算在2D屏幕上的插值
                 double alpha = sign_triangle_area(p, b, c) / sign_area;
                 double beta = sign_triangle_area(p, a, b) / sign_area;
-                double gamma = sign_triangle_area(p, c, a) / sign_area;
+                double gamma = 1 - alpha - beta;
                 double z = alpha * a.z() + beta * b.z() + gamma * c.z();
 
-                //允许小的容差值
-                final double Epsilon = 0.0001;
+                //  允许小的容差值
+                final double Epsilon = 1e-10;
                 if (alpha < -Epsilon || beta < -Epsilon || gamma < -Epsilon) {
                     continue;
                 }
@@ -171,23 +216,36 @@ public class openGL {
                 }
                 zbuffer[y][x] = z;
 
-                //计算该点重心插值后的法向量，纹理坐标
-                double[] colors;
-                if (textures[0] == null) {
-                    Vec3 n = clip.norm_interpolate(alpha, beta, gamma);
-                    Vec2 t = clip.tex_interpolate(alpha, beta, gamma);
-                    colors = shader.fragment(n, t);
-                }
-                else {
-                    Vec2 t = clip.tex_interpolate(alpha, beta, gamma);
-                    colors = shader.fragment(t);
-                }
+                //  计算在eye空间上的插值
+                Vec3 ep = clip.p_interpolate(alpha, beta, gamma);
+                Vec3 ea = clip.a().eye_coord();
+                Vec3 eb = clip.b().eye_coord();
+                Vec3 ec = clip.c().eye_coord();
 
-                //对该像素点着色
+                double eye_sign_area = sign_triangle_area(ea, eb, ec);
+                double eye_alpha = sign_triangle_area(ep, eb, ec) / eye_sign_area;
+                double eye_beta = sign_triangle_area(ep, ea, eb) / eye_sign_area;
+                double eye_gamma = 1 - eye_alpha - eye_beta;
+
+                //  使用eye空间的片段插值, 来计算该像素点的法线
+                Vec3 n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma);
+                //  使用屏幕上的片段插值, 来计算纹理坐标
+                Vec2 t = clip.tex_interpolate(alpha, beta, gamma);
+
+                double[] colors = shader.fragment(clip, n, t);
+
+                //  对该像素点着色
                 int R = (int) colors[0];
                 int G = (int) colors[1];
                 int B = (int) colors[2];
-                int screenY = Height - 1 - y;
+
+                int screenY;
+                if (isUpsideDown) {
+                    screenY = y;
+                }
+                else {
+                    screenY = Height - 1 - y;
+                }
                 screen[x + screenY * Width] = (R << 16) | (G << 8) | B;
             }
         }
@@ -198,11 +256,11 @@ public class openGL {
     }
 
     public static int bbmin(double x0, double x1, double x2) {
-        return (int) Math.floor(Math.min(Math.min(x0, x1), x2));    //边界框向下取整
+        return (int) Math.floor(Math.min(Math.min(x0, x1), x2));    //  边界框向下取整
     }
 
     public static int bbmax(double x0, double x1, double x2) {
-        return (int) Math.ceil(Math.max(Math.max(x0, x1), x2));     //边界框向上取整
+        return (int) Math.ceil(Math.max(Math.max(x0, x1), x2));     //  边界框向上取整
     }
 
     private void line(int ax, int ay, int bx, int by, Color color, Color[][] scbuffer) {
@@ -243,5 +301,9 @@ public class openGL {
                 error -= 2 * (bx - ax);
             }
         }
+    }
+
+    public void setUpsideDown() {
+        isUpsideDown = true;
     }
 }

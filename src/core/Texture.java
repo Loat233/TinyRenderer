@@ -59,9 +59,9 @@ public class Texture {
         }
     }
 
-    public Vec3 getNorm(double u, double v) {
-        int x = (int) (u * width);
-        int y = (int) (v * height);
+    public Vec3 getVector(double u, double v) {
+        int x = (int) (u * (width - 1));
+        int y = (int) (v * (height - 1));
 
         int color = data[y][x];
         double b = (color >> 16) & 0xFF;
@@ -76,8 +76,8 @@ public class Texture {
     }
 
     public double[] getRGB(double u, double v) {
-        int x = (int)(u * width);
-        int y = (int)(v * height);
+        int x = (int) (u * (width - 1));
+        int y = (int) (v * (height - 1));
 
         int color = data[y][x];
         double r = (color >> 16) & 0xFF;

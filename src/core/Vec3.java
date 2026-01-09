@@ -19,18 +19,34 @@ public class Vec3 {
     }
 
     public Vec3(double[][] M) {
+
         if (Matrix.row(M) == 1) {
             this.x = M[0][0];
             this.y = M[0][1];
             this.z = M[0][2];
             this.matrix = M;
         }
-        else if (Matrix.row(M) == 4) {
-            double factor = M[3][0];
-            this.x = M[0][0] / factor;
-            this.y = M[1][0] / factor;
-            this.z = M[2][0] / factor;
-            this.matrix = M;
+        else if (Matrix.row(M) == 4 && Matrix.column(M) == 1) {
+            double w = M[3][0];
+            this.x = M[0][0] / w;
+            this.y = M[1][0] / w;
+            this.z = M[2][0] / w;
+            this.matrix = new double[][] {
+                    {x},
+                    {y},
+                    {z},
+                    {1}
+            };
+        }
+        else if (Matrix.row(M) == 3 && Matrix.column(M) == 1) {
+            this.x = M[0][0];
+            this.y = M[1][0];
+            this.z = M[2][0];
+            this.matrix = new double[][]{
+                    {x},
+                    {y},
+                    {z},
+            };
         }
         else {
             throw new IllegalArgumentException("传入的数组不符合规范!");
@@ -49,7 +65,7 @@ public class Vec3 {
         return x * n.x + y * n.y + z * n.z;
     }
 
-    public Vec3 product(double n) {
+    public Vec3 scale(double n) {
         return new Vec3(x * n, y * n, z * n);
     }
 

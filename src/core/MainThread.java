@@ -51,15 +51,18 @@ public class MainThread extends JFrame{
 
 
         //加载各种纹理
-        Texture diffuse_tex = new Texture("src/obj/diablo3_pose_diffuse.tga");
         Texture norm_tex = new Texture("src/obj/diablo3_pose_nm.tga");
+        Texture diffuse_tex = new Texture("src/obj/diablo3_pose_diffuse.tga");
         Texture spec_tex = new Texture("src/obj/diablo3_pose_spec.tga");
         Texture glow_tex = new Texture("src/obj/diablo3_pose_glow.tga");
 
         //加载渲染器
         openGL renderer = new openGL(0, 0, Width, Height);
+        /*
+        renderer.setUpsideDown(); //    设置画面颠倒
+         */
         Model model = new Model("src/obj/diablo3_pose.obj");
-        renderer.init_light(new Vec3(0, 0, 1));
+        renderer.init_light(new Vec3(1, 1, 1));
         renderer.init_texture(norm_tex, diffuse_tex, spec_tex, glow_tex);
 
 
@@ -67,7 +70,7 @@ public class MainThread extends JFrame{
         int degree = 0;
         while(true) {
             render(renderer, model, degree);
-            degree = (degree + 10) % 360;
+            degree = (degree + 1) % 360;
             frameIndex++;
 
             //计算当前的刷新率，并尽量让刷新率保持恒定。
@@ -103,15 +106,17 @@ public class MainThread extends JFrame{
         Arrays.fill(screen, 0xFF000000);
 
         double n = degree * Math.PI / 180.0;
+        /*
         double eye_x = 5 * Math.cos(n);
         double eye_z = 5 * Math.sin(n);
+         */
 
-        Vec3 eye = new Vec3(new double[][]{{eye_x, 0, eye_z}});
+        Vec3 eye = new Vec3(new double[][]{{5, 0, 5}});
         Vec3 center = new Vec3(new double[][]{{0, 0, 0}});
         Vec3 up = new Vec3(new double[][]{{0, 1, 0}});
 
-        renderer.lookAt(eye, center, up);
-        renderer.camera(0, eye.minus(center).norm());
+        renderer.camera(eye, center, up, 10);
+        renderer.model_direct(n);
         //加载渲染模型后的画面
         renderer.render_model(model, screen);
     }
