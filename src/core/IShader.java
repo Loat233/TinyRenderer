@@ -18,16 +18,18 @@ public class IShader {
         double[] glow_color = textures[3].getRGB(tex.x(), 1 - tex.y());
 
         //  计算eye空间下像素点法线
-        //  当直接使用插值法线计算光影时，即norm = norm.normalize()时，渲染出来的光影是正常的
-        //  现在norm = eye_norm(clip, norm, tex).normalize()时，渲染出来的光影不自然
-        norm = eye_norm(clip, norm, tex).normalize();
-        //  norm = global_space_norm(tex);
+        //  直接使用插值法线计算:
+            norm = norm.normalize();
+        //  使用global space normal mapping:
+        //  norm = global_space_norm(tex).normalize();
+        //  norm = tangent_space_norm(clip, norm, tex).normalize();
 
+        double factor = norm.product(light);
         //  计算反射向量r
-        Vec3 r = norm.scale(norm.product(light) * 2).minus(light).normalize();
+        Vec3 r = norm.scale(factor * 2).minus(light).normalize();
 
-        double ambient = 0.5;
-        double diff_light = Math.max(0.0, norm.product(light));
+        double ambient = 0.8;
+        double diff_light = Math.max(0.0, factor);
         double spec_light = Math.pow(Math.max(0.0, r.z()), 35.0);
 
         double[] rgb = new double[3];
@@ -35,7 +37,7 @@ public class IShader {
             double base = diff_color[i] * diff_light;
             double specular = spec_color[i] * spec_light;
             double glow = glow_color[i] * ambient;
-            rgb[i] = Math.min(255.0, base + specular + glow);
+            rgb[i] = Math.min(255.0, (base + 1.3 * specular + 1.2 * glow) * 1.8);
         }
         return rgb;
     }
@@ -45,7 +47,7 @@ public class IShader {
     }
 
     //  计算eye空间下像素点法线
-    private Vec3 eye_norm(Fragment clip, Vec3 norm , Vec2 tex) {
+    private Vec3 tangent_space_norm(Fragment clip, Vec3 norm , Vec2 tex) {
         norm = norm.normalize();
         Vec3 p0 = clip.a().eye_coord();
         Vec3 p1 = clip.b().eye_coord();
@@ -73,12 +75,12 @@ public class IShader {
         double[][] inv_U = Matrix.inverse(U);
         double[][] T = Matrix.product(E, inv_U);
 
+        //  t和b需要单位化
         Vec3 t = new Vec3(T[0][0], T[1][0], T[2][0]);
         t.normalize();
         Vec3 b = new Vec3(T[0][1], T[1][1], T[2][1]);
         b.normalize();
 
-        //  前两个没归一！！
         double[][] D = new double[][] {
                 {t.x(), b.x(), norm.x()},
                 {t.y(), b.y(), norm.y()},

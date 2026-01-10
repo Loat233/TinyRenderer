@@ -15,21 +15,24 @@ public class openGL {
     private double[][] normMatrix;
     private double[][] eyeToScreenMatrix;
 
+
     private Vec3 light;
     private double[][] zbuffer;
-    //  各种纹理
-    private Texture[] textures;
+
+    //  模型数量
+    private int model_num;
     //  设置翻转
     private boolean isUpsideDown;
     //  模型自旋转角度
     private double degree;
 
 
-    public openGL(int x, int y, int Width, int Height){
+    public openGL(int x, int y, int Width, int Height, int model_num){
         this.Width = Width;
         this.Height = Height;
         init_viewport(x, y, Width, Height);
         init_zbuffer();
+        this.model_num = model_num;
         isUpsideDown = false;
         degree = 0.0;
     }
@@ -59,15 +62,6 @@ public class openGL {
 
     public void init_light(Vec3 light) {
         this.light = light;
-    }
-
-    //  纹理顺序:norm, diffuse, spec, glow
-    public void init_texture(Texture norm, Texture diffuse, Texture spec, Texture glow) {
-        textures = new Texture[4];
-        textures[0] = norm;
-        textures[1] = diffuse;
-        textures[2] = spec;
-        textures[3] = glow;
     }
 
     //  用于计算model_view矩阵
@@ -151,8 +145,8 @@ public class openGL {
         //  清空zbuffer
         init_zbuffer();
         //  遍历所有三角形
-        for(int i = 0; i < model.nfaces();i++) {
-            //  获取三角形面上的三个顶点对应的eye坐标,屏幕坐标,eye空间的法向量,纹理坐标, 以及3个顶点在3D空间的w分量
+        for (int i = 0; i < model.nfaces();i++) {
+            //  获取三角形面上的三个顶点对应的eye坐标,屏幕坐标,eye空间的法向量,纹理坐标
             Vec3[] eye_coords = new Vec3[3];
             Vec3[] view_coords = new Vec3[3];
             Vec3[] eye_norms = new Vec3[3];
@@ -176,7 +170,7 @@ public class openGL {
 
             Fragment clip = new Fragment(a, b, c);
             //  调用shader
-            IShader shader = new IShader(light, textures, globalToEyeMatrix);
+            IShader shader = new IShader(light, model.textures(), globalToEyeMatrix);
             rasterise(clip, shader, screen);
         }
     }
@@ -216,8 +210,22 @@ public class openGL {
                 }
                 zbuffer[y][x] = z;
 
-                //  计算在eye空间上的插值
+                /*
+                //  计算屏幕上的点p对应在eye空间上的插值
+                double persp_a = alpha / clip.a().view_coord().z();
+                double persp_b = beta / clip.b().view_coord().z();
+                double persp_c = gamma / clip.c().view_coord().z();
+                double persp_w = persp_a + persp_b + persp_c;
+
+                double persp_alpha = persp_a / persp_w;
+                double persp_beta = persp_b / persp_w;
+                double persp_gamma = persp_c / persp_w;
+                 */
+
+                //  计算屏幕上的点p对应在eye空间上的对应点ep
                 Vec3 ep = clip.p_interpolate(alpha, beta, gamma);
+
+                //  计算ep在eye空间上的插值
                 Vec3 ea = clip.a().eye_coord();
                 Vec3 eb = clip.b().eye_coord();
                 Vec3 ec = clip.c().eye_coord();
@@ -226,6 +234,7 @@ public class openGL {
                 double eye_alpha = sign_triangle_area(ep, eb, ec) / eye_sign_area;
                 double eye_beta = sign_triangle_area(ep, ea, eb) / eye_sign_area;
                 double eye_gamma = 1 - eye_alpha - eye_beta;
+
 
                 //  使用eye空间的片段插值, 来计算该像素点的法线
                 Vec3 n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma);

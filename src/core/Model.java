@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.util.List;
 
 public class Model {
+    private final String path;
+
     private final List<Vec3> verts;        // 顶点数组
     private final List<Vec3> norms;        // 法向量数组
     private final List<Vec2> texCoords;    // 纹理坐标数组
@@ -15,7 +17,11 @@ public class Model {
     private final List<Integer> facet_nrm; // 每个三角形在法向量数组中的索引
     private final List<Integer> facet_tex; // 每个三角形在纹理坐标数组中的索引
 
+    private final Texture[] textures;
+
     public Model(String filename) {
+        this.path = "src/obj/" + filename + "/";
+
         this.verts = new ArrayList<>();
         this.norms = new ArrayList<>();
         this.texCoords = new ArrayList<>();
@@ -23,11 +29,14 @@ public class Model {
         this.facet_vrt = new ArrayList<>();
         this.facet_nrm = new ArrayList<>();
         this.facet_tex = new ArrayList<>();
+
+        this.textures = new Texture[4];
         loadModel(filename);
+        loadTexture(filename);
     }
 
     private void loadModel(String filename) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader( path + filename + ".obj"))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
@@ -50,6 +59,17 @@ public class Model {
         catch (IOException e) {
             System.err.println("无法读取模型文件: " + filename);
         }
+    }
+
+    private void loadTexture(String filename) {
+        //  tangent space normal mapping
+        this.textures[0] = new Texture(path + filename + "_nm.tga");
+        //  diffuse texture
+        this.textures[1]  = new Texture(path + filename + "_diffuse.tga");
+        //  specular texture
+        this.textures[2] = new Texture(path + filename + "_spec.tga");
+        //  glow texture
+        this.textures[3] = new Texture(path + filename + "_glow.tga");
     }
 
     /**
@@ -295,6 +315,11 @@ public class Model {
                 facet_nrm.add(normalIndices.get(i + 1));   // 下个法向量
             }
         }
+    }
+
+    //  获取纹理texture[4]
+    public Texture[] textures() {
+        return textures;
     }
 
     // 面相关方法

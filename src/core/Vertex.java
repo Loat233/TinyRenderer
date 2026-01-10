@@ -22,19 +22,6 @@ public class Vertex {
         return eye_coord;
     }
 
-    public double x() {
-        return eye_coord.x();
-    }
-
-    public double y() {
-        return eye_coord.y();
-    }
-
-    public double z() {
-        return eye_coord.z();
-    }
-
-
     public Vec3 eye_norm() {
         if (eye_norm == null) {
             throw new NullPointerException();
