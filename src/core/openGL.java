@@ -170,7 +170,7 @@ public class openGL {
 
             Fragment clip = new Fragment(a, b, c);
             //  调用shader
-            IShader shader = new IShader(light, model.textures(), globalToEyeMatrix);
+            IShader shader = new IShader(light, model.textures(), model_view, normMatrix);
             rasterise(clip, shader, screen);
         }
     }

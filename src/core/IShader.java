@@ -2,10 +2,12 @@ package core;
 
 
 public class IShader {
+    double[][] normMatrix;
     Vec3 light;
     Texture[] textures;     //纹理顺序:norm, diffuse, spec, glow
 
-    public IShader(Vec3 light, Texture[] textures, double[][] eye_matrix) {
+    public IShader(Vec3 light, Texture[] textures, double[][] eye_matrix, double[][] normMatrix) {
+        this.normMatrix = normMatrix;
         this.light = new Vec3(Matrix.product(eye_matrix, light.matrix())).normalize();
         this.textures = textures;
     }
@@ -43,7 +45,8 @@ public class IShader {
     }
 
     private Vec3 global_space_norm(Vec2 tex) {
-        return textures[0].getVector(tex.x(), 1 - tex.y());
+        Vec3 v = textures[0].getVector(tex.x(), 1 - tex.y());
+        return new Vec3(Matrix.product(normMatrix, v.matrix()));
     }
 
     //  计算eye空间下像素点法线
