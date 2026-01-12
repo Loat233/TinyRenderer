@@ -59,7 +59,7 @@ public class Texture {
         }
     }
 
-    public Vec3 getVector(double u, double v) {
+    public Vector getVector(double u, double v) {
         int x = (int) (u * (width - 1));
         int y = (int) (v * (height - 1));
 
@@ -72,7 +72,7 @@ public class Texture {
         double vy = (g / 255) * 2 - 1;
         double vz = (b / 255) * 2 - 1;
 
-        return new Vec3(vx, vy, vz);
+        return new Vector(vx, vy, vz);
     }
 
     public double[] getRGB(double u, double v) {

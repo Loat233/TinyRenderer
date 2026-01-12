@@ -1,5 +1,7 @@
 package core;
 
+import java.util.Arrays;
+
 public class Matrix {
     public static int column(double[][] A) {
         return A[0].length;
@@ -112,7 +114,6 @@ public class Matrix {
         return inverse;
     }
 
-
     public static double[][] add(double[][] A, double[][] B) {
         if (row(A) == row(B) && column(A) == column(B)) {
             int row = row(A);
@@ -127,5 +128,16 @@ public class Matrix {
             return M;
         }
         throw new IllegalArgumentException("矩阵A的行列数必须等于矩阵B的行列数!");
+    }
+
+    public static double[][] eliminate(double[][] A) {
+        if (Matrix.row(A) == 4 && Matrix.column(A) == 4) {
+            return new double[][]{
+                    Arrays.copyOf(A[0], 3),
+                    Arrays.copyOf(A[1], 3),
+                    Arrays.copyOf(A[2], 3)
+            };
+        }
+        throw new IllegalArgumentException("传入矩阵的行列数必须都为4!");
     }
 }

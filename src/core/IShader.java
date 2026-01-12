@@ -3,17 +3,17 @@ package core;
 
 public class IShader {
     double[][] normMatrix;
-    Vec3 light;
+    Vector light;
     Texture[] textures;     //纹理顺序:norm, diffuse, spec, glow
 
-    public IShader(Vec3 light, Texture[] textures, double[][] eye_matrix, double[][] normMatrix) {
+    public IShader(Vector light, Texture[] textures, double[][] model_view, double[][] normMatrix) {
         this.normMatrix = normMatrix;
-        this.light = new Vec3(Matrix.product(eye_matrix, light.matrix())).normalize();
+        this.light = new Vector(Matrix.product(model_view, light.matrix())).normalize();
         this.textures = textures;
     }
 
     //  norm: 像素点的插值法线; tex: 像素点的纹理坐标
-    public double[] fragment(Fragment clip, Vec3 norm, Vec2 tex) {
+    public double[] fragment(Fragment clip, Vector norm, Vec2 tex) {
         //获取漫反射diffuse纹理
         double[] diff_color = textures[1].getRGB(tex.x(), 1 - tex.y());
         double[] spec_color = textures[2].getRGB(tex.x(), 1 - tex.y());
@@ -28,7 +28,7 @@ public class IShader {
 
         double factor = norm.product(light);
         //  计算反射向量r
-        Vec3 r = norm.scale(factor * 2).minus(light).normalize();
+        Vector r = norm.scale(factor * 2).minus(light).normalize();
 
         double ambient = 0.8;
         double diff_light = Math.max(0.0, factor);
@@ -44,20 +44,20 @@ public class IShader {
         return rgb;
     }
 
-    private Vec3 global_space_norm(Vec2 tex) {
-        Vec3 v = textures[0].getVector(tex.x(), 1 - tex.y());
-        return new Vec3(Matrix.product(normMatrix, v.matrix()));
+    private Vector global_space_norm(Vec2 tex) {
+        Vector v = textures[0].getVector(tex.x(), 1 - tex.y());
+        return new Vector(Matrix.product(normMatrix, v.matrix()));
     }
 
     //  计算eye空间下像素点法线
-    private Vec3 tangent_space_norm(Fragment clip, Vec3 norm , Vec2 tex) {
+    private Vector tangent_space_norm(Fragment clip, Vector norm , Vec2 tex) {
         norm = norm.normalize();
         Vec3 p0 = clip.a().eye_coord();
         Vec3 p1 = clip.b().eye_coord();
         Vec3 p2 = clip.c().eye_coord();
 
-        Vec3 e0 = p1.minus(p0);
-        Vec3 e1 = p2.minus(p0);
+        Vector e0 = p1.minus(p0);
+        Vector e1 = p2.minus(p0);
 
         Vec2 u0 = clip.a().tex_coord();
         Vec2 u1 = clip.b().tex_coord();
@@ -79,9 +79,9 @@ public class IShader {
         double[][] T = Matrix.product(E, inv_U);
 
         //  t和b需要单位化
-        Vec3 t = new Vec3(T[0][0], T[1][0], T[2][0]);
+        Vector t = new Vector(T[0][0], T[1][0], T[2][0]);
         t.normalize();
-        Vec3 b = new Vec3(T[0][1], T[1][1], T[2][1]);
+        Vector b = new Vector(T[0][1], T[1][1], T[2][1]);
         b.normalize();
 
         double[][] D = new double[][] {
@@ -89,13 +89,13 @@ public class IShader {
                 {t.y(), b.y(), norm.y()},
                 {t.z(), b.z(), norm.z()}
         };
-        Vec3 uv_norm = textures[0].getVector(tex.x(), 1 - tex.y());
+        Vector uv_norm = textures[0].getVector(tex.x(), 1 - tex.y());
         double[][] uv = new double[][] {
                 {uv_norm.x()},
                 {uv_norm.y()},
                 {uv_norm.z()}
         };
-        return new Vec3(Matrix.product(Matrix.transpose(D), uv));
+        return new Vector(Matrix.product(Matrix.transpose(D), uv));
     }
 
 }

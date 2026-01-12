@@ -1,6 +1,6 @@
 package Test;
 import core.Matrix;
-import core.Vec3;
+import core.Vector;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -30,7 +30,7 @@ public class MatrixTest {
                 {4.0},
                 {7.0}
         };
-        Vec3 v = new Vec3(matrix);
+        Vector v = new Vector(matrix);
         System.out.printf("x: %f, y: %f, z: %f", v.x(), v.y(), v.z());
     }
 
@@ -41,7 +41,7 @@ public class MatrixTest {
                 {4.0},
                 {7.0}
         };
-        Vec3 v = new Vec3(matrix);
+        Vector v = new Vector(matrix);
         System.out.printf("row: %d, column: %d\n", Matrix.row(v.matrix()), Matrix.column(v.matrix()));
         v.transpose();
         System.out.printf("row: %d, column: %d", Matrix.row(v.matrix()), Matrix.column(v.matrix()));

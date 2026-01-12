@@ -13,10 +13,9 @@ public class openGL {
     //  合并矩阵
     private double[][] globalToEyeMatrix;
     private double[][] normMatrix;
-    private double[][] eyeToScreenMatrix;
 
 
-    private Vec3 light;
+    private Vector light;
     private double[][] zbuffer;
 
     //  模型数量
@@ -60,15 +59,15 @@ public class openGL {
 
 
 
-    public void init_light(Vec3 light) {
+    public void init_light(Vector light) {
         this.light = light;
     }
 
     //  用于计算model_view矩阵
-    public void camera(Vec3 eye, Vec3 center, Vec3 up, double fol) {
-        Vec3 z_axis = eye.minus(center).normalize();
-        Vec3 x_axis = up.cross(z_axis).normalize();
-        Vec3 y_axis = z_axis.cross(x_axis).normalize();
+    public void camera(Vec3 eye, Vec3 center, Vector up, double fol) {
+        Vector z_axis = eye.minus(center).normalize();
+        Vector x_axis = up.cross(z_axis).normalize();
+        Vector y_axis = z_axis.cross(x_axis).normalize();
 
         double[][] coordinate = new double[][] {
                 {x_axis.x(), x_axis.y(), x_axis.z(), 0},
@@ -124,15 +123,14 @@ public class openGL {
     }
 
     private void init_matrix() {
-        this.eyeToScreenMatrix = Matrix.product(viewport, perspective);
         if (degree == 0) {
             globalToEyeMatrix = model_view;
         }
         else {
             globalToEyeMatrix = Matrix.product(rotate, model_view);
         }
-        double[][] inverse = Matrix.inverse(globalToEyeMatrix);
-        this.normMatrix = Matrix.transpose(inverse);
+        double[][] M = Matrix.inverse(globalToEyeMatrix);
+        this.normMatrix = Matrix.eliminate(Matrix.transpose(M));
     }
 
 
@@ -146,31 +144,30 @@ public class openGL {
         init_zbuffer();
         //  遍历所有三角形
         for (int i = 0; i < model.nfaces();i++) {
-            //  获取三角形面上的三个顶点对应的eye坐标,屏幕坐标,eye空间的法向量,纹理坐标
+            //  获取三角形面上的三个顶点对应的eye坐标,clip坐标,eye空间的法向量,纹理坐标
             Vec3[] eye_coords = new Vec3[3];
-            Vec3[] view_coords = new Vec3[3];
-            Vec3[] eye_norms = new Vec3[3];
+            Vec3[] clip_coords = new Vec3[3];
+            Vector[] eye_norms = new Vector[3];
             Vec2[] tex_coords = new Vec2[3];
 
             for(int j = 0; j < 3; j++) {
                 //  计算顶点的eye空间坐标
                 double[][] M = Matrix.product(globalToEyeMatrix, model.vert(i, j).matrix());
-                eye_coords[j] = new Vec3(M[0][0], M[1][0], M[2][0]);
-                //  计算顶点的屏幕坐标
-                M = Matrix.product(eyeToScreenMatrix, M);
-                view_coords[j] = new Vec3(M);    //  这里会进行透视除法
+                eye_coords[j] = new Vec3(M[0][0], M[1][0], M[2][0], M[3][0]);
+                //  计算顶点的clip坐标
+                clip_coords[j] = new Vec3(Matrix.product(perspective, M));
                 //  利用文件提供的顶点在global空间的法向量，计算顶点在eye空间的法向量
-                eye_norms[j] = new Vec3(Matrix.product(normMatrix, model.norm(i, j).matrix()));
+                eye_norms[j] = new Vector(Matrix.product(normMatrix, model.norm(i, j).matrix()));
                 tex_coords[j] = model.texcoord(i, j);
             }
 
-            Vertex a = new Vertex(eye_coords[0], view_coords[0], eye_norms[0], tex_coords[0]);
-            Vertex b = new Vertex(eye_coords[1], view_coords[1], eye_norms[1], tex_coords[1]);
-            Vertex c = new Vertex(eye_coords[2], view_coords[2], eye_norms[2], tex_coords[2]);
+            Vertex a = new Vertex(eye_coords[0], eye_norms[0], clip_coords[0], tex_coords[0]);
+            Vertex b = new Vertex(eye_coords[1], eye_norms[1], clip_coords[1], tex_coords[1]);
+            Vertex c = new Vertex(eye_coords[2], eye_norms[2], clip_coords[2], tex_coords[2]);
 
             Fragment clip = new Fragment(a, b, c);
             //  调用shader
-            IShader shader = new IShader(light, model.textures(), model_view, normMatrix);
+            IShader shader = new IShader(light, model.textures(), Matrix.eliminate(model_view), normMatrix);
             rasterise(clip, shader, screen);
         }
     }
@@ -178,9 +175,18 @@ public class openGL {
 
 
     public void rasterise(Fragment clip, IShader shader, int[] screen) {
-        Vec3 a = clip.a().view_coord();
-        Vec3 b = clip.b().view_coord();
-        Vec3 c = clip.c().view_coord();
+        //  除以w分量
+        double rp_aw = clip.a().clip_recip_w();
+        double rp_bw = clip.b().clip_recip_w();
+        double rp_cw = clip.c().clip_recip_w();
+        Vec3 a = clip.a().clip_coord().scale(rp_aw);
+        Vec3 b = clip.b().clip_coord().scale(rp_bw);
+        Vec3 c = clip.c().clip_coord().scale(rp_cw);
+
+        //  得到ndc坐标
+        a = new Vec3(Matrix.product(viewport, a.matrix()));
+        b = new Vec3(Matrix.product(viewport, b.matrix()));
+        c = new Vec3(Matrix.product(viewport, c.matrix()));
 
         double sign_area = sign_triangle_area(a, b, c);
 
@@ -189,7 +195,7 @@ public class openGL {
         }
         for(int x = bbmin(a.x(), b.x(), c.x()); x < bbmax(a.x(), b.x(), c.x()); x++) {
             for (int y = bbmin(a.y(), b.y(), c.y()); y < bbmax(a.y(), b.y(), c.y()); y++) {
-                Vec3 p = new Vec3(x + 0.5, y + 0.5, 0);
+                Vec3 p = new Vec3(x + 0.5, y + 0.5, 0, 1);
 
                 //  计算在2D屏幕上的插值
                 double alpha = sign_triangle_area(p, b, c) / sign_area;
@@ -222,24 +228,22 @@ public class openGL {
                 double persp_gamma = persp_c / persp_w;
                  */
 
-                //  计算屏幕上的点p对应在eye空间上的对应点ep
-                Vec3 ep = clip.p_interpolate(alpha, beta, gamma);
+                //  计算屏幕上的点p的透视校正后的重心坐标
 
-                //  计算ep在eye空间上的插值
-                Vec3 ea = clip.a().eye_coord();
-                Vec3 eb = clip.b().eye_coord();
-                Vec3 ec = clip.c().eye_coord();
+                double persp_a = alpha * rp_aw;
+                double persp_b = beta * rp_bw;
+                double persp_c = gamma * rp_cw;
+                double area = 1 / (persp_a + persp_b + persp_c);
 
-                double eye_sign_area = sign_triangle_area(ea, eb, ec);
-                double eye_alpha = sign_triangle_area(ep, eb, ec) / eye_sign_area;
-                double eye_beta = sign_triangle_area(ep, ea, eb) / eye_sign_area;
-                double eye_gamma = 1 - eye_alpha - eye_beta;
+                double eye_alpha = persp_a * area;
+                double eye_beta = persp_a * area;
+                double eye_gamma = persp_c * area;
 
-
+                System.out.println(eye_alpha + eye_beta + eye_gamma);
                 //  使用eye空间的片段插值, 来计算该像素点的法线
-                Vec3 n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma);
+                Vector n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma);
                 //  使用屏幕上的片段插值, 来计算纹理坐标
-                Vec2 t = clip.tex_interpolate(alpha, beta, gamma);
+                Vec2 t = clip.tex_interpolate(eye_alpha, eye_beta, eye_gamma);
 
                 double[] colors = shader.fragment(clip, n, t);
 

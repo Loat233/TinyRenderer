@@ -1,45 +1,38 @@
 package core;
 
-public class Vec3 {
+public class Vector {
     private final double x;
     private final double y;
     private final double z;
-    private final double w;
     private double[][] matrix;
 
-    public Vec3(double x, double y, double z, double w) {
+    public Vector(double x, double y, double z) {
         this.x = x;
         this.y = y;
         this.z = z;
-        this.w = w;
         this.matrix = new double[][]{
                 {x},
                 {y},
                 {z},
-                {1}
         };
     }
 
-    public Vec3(double[][] M) {
-        //  横向矩阵
+    public Vector(double[][] M) {
+
         if (Matrix.row(M) == 1) {
             this.x = M[0][0];
             this.y = M[0][1];
             this.z = M[0][2];
-            this.w = M[0][3];
             this.matrix = M;
         }
-        //  纵向矩阵
-        else if (Matrix.row(M) == 4 && Matrix.column(M) == 1) {
+        else if (Matrix.row(M) == 3 && Matrix.column(M) == 1) {
             this.x = M[0][0];
             this.y = M[1][0];
             this.z = M[2][0];
-            this.w = M[3][0];
-            this.matrix = new double[][] {
+            this.matrix = new double[][]{
                     {x},
                     {y},
                     {z},
-                    {w}
             };
         }
         else {
@@ -47,21 +40,36 @@ public class Vec3 {
         }
     }
 
-    public Vec3 add(Vec3 v) {
-        return new Vec3(x + v.x, y + v.y, z + v.z, w + v.w);
+    public Vector add(Vector v) {
+        return new Vector(x + v.x, y + v.y, z + v.z);
     }
 
-    //  会舍弃w分量
-    public Vector minus(Vec3 v) {
+    public Vector minus(Vector v) {
         return new Vector(x - v.x, y - v.y, z - v.z);
     }
 
-    public double product(Vec3 v) {
-        return x * v.x + y * v.y + z * v.z + w * v.w;
+    public double product(Vector n) {
+        return x * n.x + y * n.y + z * n.z;
     }
 
-    public Vec3 scale(double n) {
-        return new Vec3(x * n, y * n, z * n, w * n);
+    public Vector scale(double n) {
+        return new Vector(x * n, y * n, z * n);
+    }
+
+    public Vector cross(Vector v) {
+        double i = y * v.z - z * v.y;
+        double j = z * v.x - x * v.z;
+        double k = x * v.y - y * v.x;
+        return new Vector(i, j, k);
+    }
+
+    public Vector normalize() {
+        double length = Math.sqrt(x * x + y * y + z * z);
+        return new Vector(x / length, y / length, z /length);
+    }
+
+    public double norm() {
+        return Math.sqrt(x * x + y * y + z * z);
     }
 
     public void transpose() {
@@ -78,10 +86,6 @@ public class Vec3 {
 
     public double z() {
         return z;
-    }
-
-    public double w() {
-        return w;
     }
 
     public double[][] matrix() {

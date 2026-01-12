@@ -60,7 +60,7 @@ public class MainThread extends JFrame{
         //  程序主循环
         int degree = 0;
         while(true) {
-            renderer.init_light(new Vec3(-5, 10, 3));
+            renderer.init_light(new Vector(-5, 10, 3));
 
             render(renderer, diablo, degree);
             degree = (degree + 1) % 360;
@@ -104,9 +104,9 @@ public class MainThread extends JFrame{
         double eye_z = 5 * Math.sin(n);
          */
 
-        Vec3 eye = new Vec3(new double[][]{{5, 0, 5}});
-        Vec3 center = new Vec3(new double[][]{{0, 0, 0}});
-        Vec3 up = new Vec3(new double[][]{{0, 1, 0}});
+        Vec3 eye = new Vec3(5, 0, 5, 1);
+        Vec3 center = new Vec3(0, 0, 0, 1);
+        Vector up = new Vector(0, 1, 0);
 
         renderer.camera(eye, center, up, 10);
         renderer.model_direct(n);
