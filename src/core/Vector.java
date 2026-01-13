@@ -40,6 +40,17 @@ public class Vector {
         }
     }
 
+    @Override
+    public String toString() {
+        StringBuilder string = new StringBuilder("x:");
+        string.append(x());
+        string.append(", y:");
+        string.append(y());
+        string.append(", z:");
+        string.append(z());
+        return string.toString();
+    }
+
     public Vector add(Vector v) {
         return new Vector(x + v.x, y + v.y, z + v.z);
     }

@@ -60,6 +60,8 @@ public class Texture {
     }
 
     public Vector getVector(double u, double v) {
+        u = u - Math.floor(u);
+        v = v - Math.floor(v);
         int x = (int) (u * (width - 1));
         int y = (int) (v * (height - 1));
 
@@ -75,14 +77,16 @@ public class Texture {
         return new Vector(vx, vy, vz);
     }
 
-    public double[] getRGB(double u, double v) {
+    public int[] getRGB(double u, double v) {
+        u = u - Math.floor(u);
+        v = v - Math.floor(v);
         int x = (int) (u * (width - 1));
         int y = (int) (v * (height - 1));
 
         int color = data[y][x];
-        double r = (color >> 16) & 0xFF;
-        double g = (color >> 8) & 0xFF;
-        double b = color & 0xFF;
-        return new double[]{r, g, b};
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8) & 0xFF;
+        int b = color & 0xFF;
+        return new int[]{r, g, b};
     }
 }
