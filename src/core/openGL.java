@@ -39,10 +39,10 @@ public class openGL {
         double b = h / 2.0;
         double c = 255 / 2.0;
         viewport = new double[][] {
-                { a, 0, 0, x + a },
-                { 0, b, 0, y + b },
-                { 0, 0, c, c },
-                { 0, 0, 0, 1 }
+                {a, 0, 0, x + a},
+                {0, b, 0, y + b},
+                {0, 0, c, c},
+                {0, 0, 0, 1}
         };
     }
 
@@ -66,16 +66,16 @@ public class openGL {
         Vector y_axis = z_axis.cross(x_axis).normalize();
 
         double[][] coordinate = new double[][] {
-                { x_axis.x(), x_axis.y(), x_axis.z(), 0 },
-                { y_axis.x(), y_axis.y(), y_axis.z(), 0 },
-                { z_axis.x(), z_axis.y(), z_axis.z(), 0 },
-                { 0, 0, 0, 1 }
+                {x_axis.x(), x_axis.y(), x_axis.z(), 0},
+                {y_axis.x(), y_axis.y(), y_axis.z(), 0},
+                {z_axis.x(), z_axis.y(), z_axis.z(), 0},
+                {0, 0, 0, 1 }
         };
         double[][] transpose_center = new double[][] {
-                { 1, 0, 0, -center.x() },
-                { 0, 1, 0, -center.y() },
-                { 0, 0, 1, -center.z() },
-                { 0, 0, 0, 1 }
+                {1, 0, 0, -center.x()},
+                {0, 1, 0, -center.y()},
+                {0, 0, 1, -center.z()},
+                {0, 0, 0, 1}
         };
         model_view = Matrix.product(coordinate, transpose_center);
         init_perspective(fol);
@@ -96,10 +96,10 @@ public class openGL {
          * };
          */
         perspective = new double[][] {
-                { 1, 0, 0, 0 },
-                { 0, 1, 0, 0 },
-                { 0, 0, 1, 0 },
-                { 0, 0, -1 / f, 1 }
+                {1, 0, 0, 0},
+                {0, 1, 0, 0},
+                {0, 0, 1, 0},
+                {0, 0, -1 / f, 1}
         };
     }
 
@@ -114,10 +114,10 @@ public class openGL {
 
     private void init_rotate(double d) {
         rotate = new double[][] {
-                { Math.cos(d), 0.0, Math.sin(d), 0.0 },
-                { 0.0, 1.0, 0.0, 0.0 },
-                { -Math.sin(d), 0.0, Math.cos(d), 0.0 },
-                { 0.0, 0.0, 0.0, 1.0 }
+                {Math.cos(d), 0.0, Math.sin(d), 0.0},
+                {0.0, 1.0, 0.0, 0.0},
+                {-Math.sin(d), 0.0, Math.cos(d), 0.0},
+                {0.0, 0.0, 0.0, 1.0}
         };
     }
 
@@ -125,7 +125,7 @@ public class openGL {
         if (degree == 0) {
             globalToEyeMatrix = model_view;
         } else {
-            globalToEyeMatrix = Matrix.product(rotate, model_view);
+            globalToEyeMatrix = Matrix.product(model_view, rotate);
         }
         double[][] M = Matrix.inverse(globalToEyeMatrix);
         this.normMatrix = Matrix.eliminate(Matrix.transpose(M));

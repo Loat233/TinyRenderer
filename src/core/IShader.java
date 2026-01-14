@@ -29,22 +29,18 @@ public class IShader {
         norm = global_space_norm(tex).normalize();
         //  norm = tangent_space_norm(clip, norm, tex).normalize();
 
-
         double factor = norm.product(light);
         //  计算反射向量r
         Vector r = norm.scale(factor * 2).minus(light).normalize();
-
-        double ambient = 0.8;
-        double diff_light = Math.max(0.0, factor);
-
-        double spec_light = Math.pow(Math.max(0.0, r.z()), 35.0);
+        double diff_light = Math.max(0.0, factor) + 0.1;
+        double spec_light = Math.pow(Math.max(0.0, r.z()), 10.0);
 
         int[] rgb = new int[3];
         for (int i = 0; i < 3; i++) {
             double base = diff_color[i] * diff_light;
             double specular = spec_color[i] * spec_light;
-            double glow = glow_color[i] * ambient;
-            double color = Math.min(255.0, (base + 1.3 * specular + 1.2 * glow) * 1.8);
+            double glow = glow_color[i] * 0.6;
+            double color = Math.min(255.0, base + 0.8 * specular + glow);
             rgb[i] = (int) Math.floor(color);
         }
         return rgb;

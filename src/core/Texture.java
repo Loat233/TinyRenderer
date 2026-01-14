@@ -74,7 +74,7 @@ public class Texture {
         double vy = (g / 255) * 2 - 1;
         double vz = (b / 255) * 2 - 1;
 
-        return new Vector(vx, vy, vz);
+        return new Vector(vx, vy, vz).normalize();
     }
 
     public int[] getRGB(double u, double v) {

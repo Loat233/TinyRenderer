@@ -60,7 +60,7 @@ public class MainThread extends JFrame{
         //  程序主循环
         int degree = 0;
         while(true) {
-            renderer.init_light(new Vector(-5, 10, 3));
+            renderer.init_light(new Vector(10, 0, 10));
 
             render(renderer, diablo, degree);
             degree = (degree + 1) % 360;
