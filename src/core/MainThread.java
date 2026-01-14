@@ -51,11 +51,12 @@ public class MainThread extends JFrame{
 
         //  加载渲染器
         openGL renderer = new openGL(0, 0, Width, Height);
+        //  加载模型
+        Model[] models = new Model[] {new Model("diablo3_pose"), new Model("floor")};
+        //  设置画面颠倒
         /*
-        renderer.setUpsideDown(); //    设置画面颠倒
+            renderer.setUpsideDown();
          */
-        Model diablo = new Model("diablo3_pose");
-        Model floor = new Model("floor");
 
         //  程序主循环
         int degree = 0;
@@ -69,7 +70,7 @@ public class MainThread extends JFrame{
 
             renderer.init_lightPos(new Vec3(3, 1, 3, 1));
 
-            render(renderer, diablo, degree);
+            render(renderer, models, degree);
             degree = (degree + 1) % 360;
             frameIndex++;
 
@@ -101,7 +102,7 @@ public class MainThread extends JFrame{
         }
     }
 
-    public void render(openGL renderer, Model model, int degree) {
+    public void render(openGL renderer, Model[] models, int degree) {
         // 每帧开始时清空屏幕缓冲区
         Arrays.fill(screen, 0xFF000000);
 
@@ -113,11 +114,11 @@ public class MainThread extends JFrame{
 
         Vec3 eye = new Vec3(5, 0, 5, 1);
         Vec3 center = new Vec3(0, 0, 0, 1);
-        Vector up = new Vector(0, 1, 0);
+        Vector up = new Vector(0,
 
         renderer.camera(eye, center, up, 10);
         renderer.model_direct(n);
         //  加载渲染模型后的画面
-        renderer.render_model(model, screen);
+        renderer.render_model(models, screen);
     }
 }

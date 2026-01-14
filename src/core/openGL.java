@@ -125,40 +125,43 @@ public class openGL {
         this.normMatrix = Matrix.eliminate(Matrix.transpose(M));
     }
 
-    public void render_model(Model model, int[] screen) {
+    public void render_model(Model[] models, int[] screen) {
         if (model_view == null || perspective == null || viewport == null) {
             throw new IllegalArgumentException("先调用camera函数！");
         }
 
         // 清空zbuffer
         init_zbuffer();
-        // 遍历所有三角形
-        for (int i = 0; i < model.nfaces(); i++) {
-            // 获取三角形面上的三个顶点对应的eye坐标,clip坐标,eye空间的法向量,纹理坐标
-            Vec3[] eye_coords = new Vec3[3];
-            Vec3[] clip_coords = new Vec3[3];
-            Vector[] eye_norms = new Vector[3];
-            Vec2[] tex_coords = new Vec2[3];
+        // 遍历所有模型
+        for (Model model : models) {
+            // 遍历所有三角形
+            for (int i = 0; i < model.nfaces(); i++) {
+                // 获取三角形面上的三个顶点对应的eye坐标,clip坐标,eye空间的法向量,纹理坐标
+                Vec3[] eye_coords = new Vec3[3];
+                Vec3[] clip_coords = new Vec3[3];
+                Vector[] eye_norms = new Vector[3];
+                Vec2[] tex_coords = new Vec2[3];
 
-            for (int j = 0; j < 3; j++) {
-                // 计算顶点的eye空间坐标
-                double[][] M = Matrix.product(globalToEyeMatrix, model.vert(i, j).matrix());
-                eye_coords[j] = new Vec3(M[0][0], M[1][0], M[2][0], M[3][0]);
-                // 计算顶点的clip坐标
-                clip_coords[j] = new Vec3(Matrix.product(perspective, M));
-                // 利用文件提供的顶点在global空间的法向量，计算顶点在eye空间的法向量
-                eye_norms[j] = new Vector(Matrix.product(normMatrix, model.norm(i, j).matrix())).normalize();
-                tex_coords[j] = model.texcoord(i, j);
+                for (int j = 0; j < 3; j++) {
+                    // 计算顶点的eye空间坐标
+                    double[][] M = Matrix.product(globalToEyeMatrix, model.vert(i, j).matrix());
+                    eye_coords[j] = new Vec3(M[0][0], M[1][0], M[2][0], M[3][0]);
+                    // 计算顶点的clip坐标
+                    clip_coords[j] = new Vec3(Matrix.product(perspective, M));
+                    // 利用文件提供的顶点在global空间的法向量，计算顶点在eye空间的法向量
+                    eye_norms[j] = new Vector(Matrix.product(normMatrix, model.norm(i, j).matrix())).normalize();
+                    tex_coords[j] = model.texcoord(i, j);
+                }
+
+                Vertex a = new Vertex(eye_coords[0], eye_norms[0], clip_coords[0], tex_coords[0]);
+                Vertex b = new Vertex(eye_coords[1], eye_norms[1], clip_coords[1], tex_coords[1]);
+                Vertex c = new Vertex(eye_coords[2], eye_norms[2], clip_coords[2], tex_coords[2]);
+
+                Fragment clip = new Fragment(a, b, c);
+                // 调用shader
+                IShader shader = new IShader(lightPos, model.textures(), model_view, normMatrix);
+                rasterise(clip, shader, screen);
             }
-
-            Vertex a = new Vertex(eye_coords[0], eye_norms[0], clip_coords[0], tex_coords[0]);
-            Vertex b = new Vertex(eye_coords[1], eye_norms[1], clip_coords[1], tex_coords[1]);
-            Vertex c = new Vertex(eye_coords[2], eye_norms[2], clip_coords[2], tex_coords[2]);
-
-            Fragment clip = new Fragment(a, b, c);
-            // 调用shader
-            IShader shader = new IShader(lightPos, model.textures(), model_view, normMatrix);
-            rasterise(clip, shader, screen);
         }
     }
 
