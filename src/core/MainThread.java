@@ -60,7 +60,14 @@ public class MainThread extends JFrame{
         //  程序主循环
         int degree = 0;
         while(true) {
-            renderer.init_light(new Vector(10, 0, 10));
+
+            /*
+            //  让光源旋转
+            double lgx = 1.5 * Math.sin(degree * 5 * Math.PI / 180.0);
+            double lgz = 1.5 * Math.cos(degree * 5 * Math.PI / 180.0);
+             */
+
+            renderer.init_lightPos(new Vec3(3, 1, 3, 1));
 
             render(renderer, diablo, degree);
             degree = (degree + 1) % 360;

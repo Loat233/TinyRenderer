@@ -3,20 +3,19 @@ package core;
 
 public class IShader {
     double[][] normMatrix;
-    Vector light;
+    Vec3 lightPos;
     Texture[] textures;     //纹理顺序:norm, diffuse, spec, glow
 
 
 
-    public IShader(Vector light, Texture[] textures, double[][] model_view, double[][] normMatrix) {
+    public IShader(Vec3 lightPos, Texture[] textures, double[][] model_view, double[][] normMatrix) {
         this.normMatrix = normMatrix;
-        this.light = new Vector(Matrix.product(model_view, light.matrix())).normalize();
+        this.lightPos = new Vec3(Matrix.product(model_view, lightPos.matrix()));
         this.textures = textures;
     }
 
     //  norm: 像素点的插值法线; tex: 像素点的纹理坐标
-    public int[] fragment(Fragment clip, Vector norm, Vec2 tex) {
-
+    public int[] fragment(Fragment clip, Vector norm, Vec2 tex, Vec3 eyePos) {
         //获取漫反射diffuse纹理
         int[] diff_color = textures[1].getRGB(tex.x(), 1 - tex.y());
         int[] spec_color = textures[2].getRGB(tex.x(), 1 - tex.y());
@@ -29,18 +28,28 @@ public class IShader {
         norm = global_space_norm(tex).normalize();
         //  norm = tangent_space_norm(clip, norm, tex).normalize();
 
+        //  计算像素点所接收到的光线light
+        Vector light = lightPos.minus(eyePos);
+        //  计算光线的衰减值(attenuation)
+        double kc = 1.0;
+        double kl = 0.09;
+        double kq = 0.032;
+
+        double lg_dist = light.sqrt();
+        double attenuation = 1 / (kc + kl * lg_dist + kq * lg_dist * lg_dist);
+
         double factor = norm.product(light);
         //  计算反射向量r
         Vector r = norm.scale(factor * 2).minus(light).normalize();
-        double diff_light = Math.max(0.0, factor) + 0.1;
-        double spec_light = Math.pow(Math.max(0.0, r.z()), 10.0);
+        double diff_light = Math.max(0.0, factor) * attenuation + 0.1;
+        double spec_light = Math.pow(Math.max(0.0, r.z()), 10.0) * attenuation;
 
         int[] rgb = new int[3];
         for (int i = 0; i < 3; i++) {
             double base = diff_color[i] * diff_light;
             double specular = spec_color[i] * spec_light;
             double glow = glow_color[i] * 0.6;
-            double color = Math.min(255.0, base + 0.8 * specular + glow);
+            double color = Math.min(255.0, base + 0.8 * specular + glow); //  环境光glow不衰减
             rgb[i] = (int) Math.floor(color);
         }
         return rgb;

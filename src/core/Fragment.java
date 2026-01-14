@@ -11,6 +11,15 @@ public class Fragment {
         this.c = c;
     }
 
+
+    //  计算在eye空间下点P的插值坐标
+    public Vec3 eyePos_interpolate(double alpha, double beta, double gamma) {
+        Vec3 v0 = a.eye_coord().scale(alpha);
+        Vec3 v1 = b.eye_coord().scale(beta);
+        Vec3 v2 = c.eye_coord().scale(gamma);
+        return v0.add(v1).add(v2);
+    }
+
     //  计算在eye空间下的插值法线
     public Vector norm_interpolate(double alpha, double beta, double gamma) {
         Vector v0 = a.eye_norm().scale(alpha);

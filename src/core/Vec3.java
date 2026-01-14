@@ -47,7 +47,12 @@ public class Vec3 {
         }
     }
 
-      //  会舍弃w分量
+    //  不会舍弃w分量
+    public Vec3 add(Vec3 v) {
+        return new Vec3(x + v.x, y + v.y, z + v.z, w + v.w);
+    }
+
+    //  会舍弃w分量
     public Vector minus(Vec3 v) {
         return new Vector(x - v.x, y - v.y, z - v.z);
     }

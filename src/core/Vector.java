@@ -79,6 +79,10 @@ public class Vector {
         return new Vector(x * d, y * d, z * d);
     }
 
+    public double sqrt() {
+        return Math.sqrt(x * x + y * y + z * z);
+    }
+
     public void transpose() {
         matrix = Matrix.transpose(matrix);
     }

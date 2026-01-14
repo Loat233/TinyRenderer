@@ -15,7 +15,7 @@ public class openGL {
     private double[][] globalToEyeMatrix;
     private double[][] normMatrix;
 
-    private Vector light;
+    private Vec3 lightPos;
     private double[] zbuffer;
 
     // 设置翻转
@@ -49,8 +49,8 @@ public class openGL {
         Arrays.fill(zbuffer, Double.NEGATIVE_INFINITY);
     }
 
-    public void init_light(Vector light) {
-        this.light = light;
+    public void init_lightPos(Vec3 lightPos) {
+        this.lightPos = lightPos;
     }
 
     // 用于计算model_view矩阵
@@ -157,7 +157,7 @@ public class openGL {
 
             Fragment clip = new Fragment(a, b, c);
             // 调用shader
-            IShader shader = new IShader(light, model.textures(), Matrix.eliminate(model_view), normMatrix);
+            IShader shader = new IShader(lightPos, model.textures(), model_view, normMatrix);
             rasterise(clip, shader, screen);
         }
     }
@@ -216,13 +216,15 @@ public class openGL {
                 double eye_beta = persp_b * area;
                 double eye_gamma = persp_c * area;
 
+                // 使用eye空间的片段插值, 来计算该像素点的eye空间的插值坐标
+                Vec3 eyePos = clip.eyePos_interpolate(eye_alpha, eye_beta, eye_gamma);
                 // 使用eye空间的片段插值, 来计算该像素点的法线
                 Vector n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma);
                 // 使用屏幕上的片段插值, 来计算纹理坐标
                 Vec2 t = clip.tex_interpolate(eye_alpha, eye_beta, eye_gamma);
 
                 // 对该像素点着色
-                int[] colors = shader.fragment(clip, n, t);
+                int[] colors = shader.fragment(clip, n, t, eyePos);
                 int screenY;
                 if (isUpsideDown) {
                     screenY = y;
