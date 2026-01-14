@@ -50,7 +50,7 @@ public class MainThread extends JFrame{
         screen = ((DataBufferInt)dest).getData();
 
         //  加载渲染器
-        openGL renderer = new openGL(0, 0, Width, Height, 2);
+        openGL renderer = new openGL(0, 0, Width, Height);
         /*
         renderer.setUpsideDown(); //    设置画面颠倒
          */

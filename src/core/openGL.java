@@ -1,6 +1,7 @@
 package core;
 
 import java.awt.*;
+import java.util.Arrays;
 
 public class openGL {
     private final int Height;
@@ -15,21 +16,18 @@ public class openGL {
     private double[][] normMatrix;
 
     private Vector light;
-    private double[][] zbuffer;
+    private double[] zbuffer;
 
-    // 模型数量
-    private int model_num;
     // 设置翻转
     private boolean isUpsideDown;
     // 模型自旋转角度
     private double degree;
 
-    public openGL(int x, int y, int Width, int Height, int model_num) {
+    public openGL(int x, int y, int Width, int Height) {
         this.Width = Width;
         this.Height = Height;
         init_viewport(x, y, Width, Height);
         init_zbuffer();
-        this.model_num = model_num;
         isUpsideDown = false;
         degree = 0.0;
     }
@@ -47,12 +45,8 @@ public class openGL {
     }
 
     private void init_zbuffer() {
-        zbuffer = new double[Height][Width];
-        for (int y = 0; y < Height; y++) {
-            for (int x = 0; x < Width; x++) {
-                zbuffer[y][x] = Double.NEGATIVE_INFINITY;
-            }
-        }
+        zbuffer = new double[Height * Width];
+        Arrays.fill(zbuffer, Double.NEGATIVE_INFINITY);
     }
 
     public void init_light(Vector light) {
@@ -206,10 +200,11 @@ public class openGL {
                 if (x < 0 || y < 0 || x >= Width || y >= Height) {
                     continue;
                 }
-                if (z <= zbuffer[y][x]) {
+                int index = x + y * Width;
+                if (z <= zbuffer[index]) {
                     continue;
                 }
-                zbuffer[y][x] = z;
+                zbuffer[index] = z;
 
                 // 计算屏幕上的点p的透视校正后的重心坐标
                 double persp_a = alpha * rp_aw;

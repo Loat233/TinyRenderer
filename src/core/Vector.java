@@ -75,12 +75,8 @@ public class Vector {
     }
 
     public Vector normalize() {
-        double length = Math.sqrt(x * x + y * y + z * z);
-        return new Vector(x / length, y / length, z /length);
-    }
-
-    public double norm() {
-        return Math.sqrt(x * x + y * y + z * z);
+        double d = 1 / Math.sqrt(x * x + y * y + z * z);
+        return new Vector(x * d, y * d, z * d);
     }
 
     public void transpose() {

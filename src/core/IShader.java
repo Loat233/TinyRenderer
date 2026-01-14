@@ -97,5 +97,4 @@ public class IShader {
         };
         return new Vector(Matrix.product(D, uv));
     }
-
 }

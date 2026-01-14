@@ -70,9 +70,10 @@ public class Texture {
         double g = (color >> 8) & 0xFF;
         double r = color & 0xFF;
 
-        double vx = (r / 255) * 2 - 1;
-        double vy = (g / 255) * 2 - 1;
-        double vz = (b / 255) * 2 - 1;
+        double d = 1 / 127.5;
+        double vx = r * d - 1;
+        double vy = g * d - 1;
+        double vz = b * d - 1;
 
         return new Vector(vx, vy, vz).normalize();
     }
