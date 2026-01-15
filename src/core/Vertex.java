@@ -1,16 +1,18 @@
 package core;
 
 public class Vertex {
-    private final Vec3 eye_coord; // 顶点的在eye空间中的坐标
-    private final Vector eye_norm; // 顶在eye空间的法向量
-    private final Vec3 clip_coord; //   顶点的clip坐标
-    private Vec2 tex_coord; // 顶点对应的纹理坐标
+    private final Vec3 eye_coord;   // 顶点的在eye空间中的坐标
+    private final Vector eye_norm;  // 顶在eye空间的法向量
+    private final Vec3 clip_coord;  // 顶点的clip坐标
+    private Vec2 tex_coord;     // 顶点对应的纹理坐标
+    private Vec3 shad_coord;    // 顶点在光线视角下的NDC坐标
 
-    public Vertex(Vec3 eye_coord, Vector eye_norm, Vec3 clip_coord, Vec2 tex_coord) {
+    public Vertex(Vec3 eye_coord, Vector eye_norm, Vec3 clip_coord, Vec2 tex_coord, Vec3 shad_coord) {
         this.eye_coord = eye_coord;
         this.eye_norm = eye_norm;
         this.clip_coord = clip_coord;
         this.tex_coord = tex_coord;
+        this.shad_coord = shad_coord;
     }
 
     public Vec3 clip_coord() {
@@ -34,6 +36,10 @@ public class Vertex {
             tex_coord = new Vec2(0.0, 0.0);
         }
         return tex_coord;
+    }
+
+    public Vec3 shad_coord() {
+        return shad_coord;
     }
 
     public double clip_recip_w() {

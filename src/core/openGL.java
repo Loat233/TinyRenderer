@@ -4,78 +4,146 @@ import java.awt.*;
 import java.util.Arrays;
 
 public class openGL {
-    private final int Height;
-    private final int Width;
+    // 用户输入的参数
+    private final int startX;
+    private final int startY;
+    private final int Height; // 屏幕高
+    private final int Width;  // 屏幕宽
+    private double degree;    // 模型自旋转角度
+    private double fol;       // 视
+    private Vec3 lgPos;    // 光源global坐标
+    private Vec3 eye;
+    private Vec3 center;
+    private Vector up;
 
-    private double[][] model_view;
-    private double[][] rotate;
-    private double[][] perspective;
-    private double[][] viewport;
     // 合并矩阵
-    private double[][] globalToEyeMatrix;
+    private double[][] glToClipShadMatrix;
+    private double[][] shadowMatrix;
+    private double[][] eyeView;
     private double[][] normMatrix;
 
-    private Vec3 lightPos;
+    // 光源eye坐标
+    private Vec3 lgEyePos;
+    // 深度图
+    private double[] shad_zbuffer;
     private double[] zbuffer;
+    // 调试参数
+    private boolean isUpsideDown; // 设置翻转
 
-    // 设置翻转
-    private boolean isUpsideDown;
-    // 模型自旋转角度
-    private double degree;
+
 
     public openGL(int x, int y, int Width, int Height) {
+        this.startX = x;
+        this.startY = y;
         this.Width = Width;
         this.Height = Height;
-        init_viewport(x, y, Width, Height);
-        init_zbuffer();
+
+        shad_zbuffer = clear_zbuffer(Width, Height);
+        zbuffer = clear_zbuffer(Width, Height);
         isUpsideDown = false;
-        degree = 0.0;
     }
 
-    private void init_viewport(int x, int y, int w, int h) {
-        double a = w / 2.0;
-        double b = h / 2.0;
-        double c = 255 / 2.0;
-        viewport = new double[][] {
-                {a, 0, 0, x + a},
-                {0, b, 0, y + b},
-                {0, 0, c, c},
-                {0, 0, 0, 1}
-        };
-    }
 
-    private void init_zbuffer() {
-        zbuffer = new double[Height * Width];
-        Arrays.fill(zbuffer, Double.NEGATIVE_INFINITY);
-    }
 
     public void init_lightPos(Vec3 lightPos) {
-        this.lightPos = lightPos;
+        this.lgPos = lightPos;
     }
 
     // 用于计算model_view矩阵
     public void camera(Vec3 eye, Vec3 center, Vector up, double fol) {
-        Vector z_axis = eye.minus(center).normalize();
+        this.eye = eye;
+        this.center = center;
+        this.up = up;
+        this.fol = fol;
+    }
+
+    // 模型围绕center点旋转
+    public void model_direct(double degree) {
+        this.degree = degree;
+    }
+
+    /*
+    // 计算点光源相关矩阵和eye空间坐标
+    private void lightCamera(Vec3 lightPos, Vec3 center, Vector up, double fol) {
+        Vector z_axis = lightPos.minus(center).normalize();
         Vector x_axis = up.cross(z_axis).normalize();
         Vector y_axis = z_axis.cross(x_axis).normalize();
 
         double[][] coordinate = new double[][] {
-                {x_axis.x(), x_axis.y(), x_axis.z(), 0},
-                {y_axis.x(), y_axis.y(), y_axis.z(), 0},
-                {z_axis.x(), z_axis.y(), z_axis.z(), 0},
-                {0, 0, 0, 1 }
+                { x_axis.x(), x_axis.y(), x_axis.z(), 0 },
+                { y_axis.x(), y_axis.y(), y_axis.z(), 0 },
+                { z_axis.x(), z_axis.y(), z_axis.z(), 0 },
+                { 0, 0, 0, 1 }
         };
         double[][] transpose_center = new double[][] {
-                {1, 0, 0, -center.x()},
-                {0, 1, 0, -center.y()},
-                {0, 0, 1, -center.z()},
-                {0, 0, 0, 1}
+                { 1, 0, 0, -center.x() },
+                { 0, 1, 0, -center.y() },
+                { 0, 0, 1, -center.z() },
+                { 0, 0, 0, 1 }
         };
-        model_view = Matrix.product(coordinate, transpose_center);
-        init_perspective(fol);
+        // 计算点光源在eye空间的坐标
+        this.lightEyePos = new Vec3(Matrix.product(model_view, lightPos.matrix()));
+        // 计算光源视角的clip空间矩阵
+        double[][] shadow_mv = init_model_view(coordinate, transpose_center);
+        double[][] shadow_persp = init_perspective(fol);
+        this.glToClipShadMatrix = Matrix.product(shadow_persp, shadow_mv);
     }
 
-    private void init_perspective(double f) {
+     */
+    private Vector[] getBases(Vec3 eye, Vec3 center, Vector up) {
+        Vector z_axis = eye.minus(center).normalize();
+        Vector x_axis = up.cross(z_axis).normalize();
+        Vector y_axis = z_axis.cross(x_axis).normalize();
+
+        return new Vector[]{x_axis, y_axis, z_axis};
+    }
+
+    private double[][] getCoordinate(Vector[] bases) {
+        Vector x_axis = bases[0];
+        Vector y_axis = bases[1];
+        Vector z_axis = bases[2];
+        return new double[][] {
+                { x_axis.x(), x_axis.y(), x_axis.z(), 0 },
+                { y_axis.x(), y_axis.y(), y_axis.z(), 0 },
+                { z_axis.x(), z_axis.y(), z_axis.z(), 0 },
+                { 0, 0, 0, 1 }
+        };
+    }
+
+    private double[][] getTCenter(Vec3 center) {
+        return new double[][] {
+                { 1, 0, 0, -center.x() },
+                { 0, 1, 0, -center.y() },
+                { 0, 0, 1, -center.z() },
+                { 0, 0, 0, 1 }
+        };
+    }
+
+    private double[][] getRotate(double d) {
+        return new double[][] {
+                { Math.cos(d), 0.0, Math.sin(d), 0.0 },
+                { 0.0, 1.0, 0.0, 0.0 },
+                { -Math.sin(d), 0.0, Math.cos(d), 0.0 },
+                { 0.0, 0.0, 0.0, 1.0 }
+        };
+    }
+
+    private double[][] getModelView(double[][] coordinate, double[][] transpose_center) {
+        return Matrix.product(coordinate, transpose_center);
+    }
+
+    private double[][] getEyeView(double[][] coordinate, double[][] transpose_center) {
+        if (degree == 0) {
+            return getModelView(coordinate, transpose_center);
+        }
+        else {
+            double[][] rotate = getRotate(degree);
+            double[][] model_view = getModelView(coordinate, transpose_center);
+            return Matrix.product(model_view, rotate);
+        }
+    }
+
+    private double[][] getPerspective(double f) {
         /*
          * 标准透视矩阵计算
          * fov = fov * Math.PI / 180.0;
@@ -89,88 +157,170 @@ public class openGL {
          * {0, 0, -1, 0}
          * };
          */
-        perspective = new double[][] {
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {0, 0, -1 / f, 1}
+        return new double[][] {
+                { 1, 0, 0, 0 },
+                { 0, 1, 0, 0 },
+                { 0, 0, 1, 0 },
+                { 0, 0, -1 / f, 1 }
         };
     }
 
-    // 模型围绕center点旋转
-    public void model_direct(double degree) {
-        if (degree != 0.0) {
-            this.degree = degree;
-            init_rotate(degree);
-        }
-        init_matrix();
-    }
-
-    private void init_rotate(double d) {
-        rotate = new double[][] {
-                {Math.cos(d), 0.0, Math.sin(d), 0.0},
-                {0.0, 1.0, 0.0, 0.0},
-                {-Math.sin(d), 0.0, Math.cos(d), 0.0},
-                {0.0, 0.0, 0.0, 1.0}
+    private double[][] getViewport(int x, int y, int w, int h) {
+        double a = w / 2.0;
+        double b = h / 2.0;
+        double c = 100000.0 / 2.0;
+        return new double[][] {
+                { a, 0, 0, x + a },
+                { 0, b, 0, y + b },
+                { 0, 0, c, c },
+                { 0, 0, 0, 1 }
         };
     }
 
-    private void init_matrix() {
-        if (degree == 0) {
-            globalToEyeMatrix = model_view;
-        } else {
-            globalToEyeMatrix = Matrix.product(model_view, rotate);
-        }
-        double[][] M = Matrix.inverse(globalToEyeMatrix);
-        this.normMatrix = Matrix.eliminate(Matrix.transpose(M));
+    private double[] clear_zbuffer(int width, int height) {
+        double[] buffer = new double[height * width];
+        Arrays.fill(buffer, Double.NEGATIVE_INFINITY);
+        return buffer;
     }
 
-    public void render_model(Model[] models, int[] screen) {
-        if (model_view == null || perspective == null || viewport == null) {
+    public void render(Model[] models, int[] screen) {
+        double[][] coordinate;
+        double[][] t_center;
+        double[][] modelView;
+        double[][] perspective;
+        double[][] viewport;
+        //  加载阴影图
+        coordinate = getCoordinate(getBases(lgPos, center, up));
+        t_center = getTCenter(center);
+        modelView = getModelView(coordinate, t_center);
+        perspective = getPerspective(fol);
+        viewport = getViewport(startX, startY, Width, Height);
+
+        render_shadMap(models, modelView, perspective, viewport);
+
+
+
+        //  加载模型
+        coordinate = getCoordinate(getBases(eye, center, up));
+        t_center = getTCenter(center);
+        modelView = getModelView(coordinate, t_center);
+        perspective = getPerspective(fol);
+        viewport = getViewport(startX, startY, Width, Height);
+        //  加载合并矩阵
+        this.eyeView = getEyeView(coordinate, t_center);
+        this.lgEyePos = new Vec3(Matrix.product(modelView, lgPos.matrix()));
+        double[][] inv_eyeView = Matrix.inverse(eyeView);
+        //  this.shadowMatrix = Matrix.product(glToClipShadMatrix, inv_eyeView);
+        this.normMatrix = Matrix.eliminate(Matrix.transpose(inv_eyeView));
+
+        render_model(models, screen, modelView, perspective, viewport);
+    }
+
+    public void render_shadMap(Model[] models, double[][] modelView, double[][] perspective, double[][] viewport) {
+
+    }
+    /*
+        public void shadow_rasterise(Vec3[] clip) {
+            double hf_w = Width / 2.0;
+            double hf_h = Height / 2.0;
+            double hf_d = 255.0 / 2.0;
+
+            Vec3[] frag = new Vec3[3];
+            // 除以w分量,并计算顶点的屏幕坐标
+            for (int i = 0; i < 3; i++) {
+                Vec3 v = clip[i].scale(clip[i].w());
+                frag[i] = new Vec3((v.x() + 1) * hf_w, (v.y() + 1) * hf_h, (v.z() + 1) * hf_d, 1);
+            }
+
+            Vec3 a = frag[0];
+            Vec3 b = frag[1];
+            Vec3 c = frag[2];
+            double sign_area = sign_triangle_area(a, b, c);
+            if (sign_area < 1) {
+                return;
+            }
+            for (int x = bbmin(a.x(), b.x(), c.x()); x < bbmax(a.x(), b.x(), c.x()); x++) {
+                for (int y = bbmin(a.y(), b.y(), c.y()); y < bbmax(a.y(), b.y(), c.y()); y++) {
+                    Vec3 p = new Vec3(x + 0.5, y + 0.5, 0, 1);
+
+                    // 计算在2D屏幕上的插值
+                    double alpha = sign_triangle_area(p, b, c) / sign_area;
+                    double beta = sign_triangle_area(p, c, a) / sign_area;
+                    double gamma = 1 - alpha - beta;
+                    double z = alpha * a.z() + beta * b.z() + gamma * c.z();
+
+                    // 允许小的容差值
+                    final double Epsilon = 1e-10;
+                    if (alpha < -Epsilon || beta < -Epsilon || gamma < -Epsilon) {
+                        continue;
+                    }
+                    if (x < 0 || y < 0 || x >= Width || y >= Height) {
+                        continue;
+                    }
+                    int index = x + y * Width;
+                    if (z <= shad_zbuffer[index]) {
+                        continue;
+                    }
+                    shad_zbuffer[index] = z;
+                }
+            }
+        }
+         */
+
+    private void render_model(Model[] models, int[] screen, double[][] modelView, double[][] perspective, double[][] viewport) {
+        if (modelView == null || perspective == null || viewport == null) {
             throw new IllegalArgumentException("先调用camera函数！");
         }
-
-        // 清空zbuffer
-        init_zbuffer();
+        // 清空zbuffer,shad_zbuffer
+        this.zbuffer = clear_zbuffer(Width, Height);
+        // 加载点光源视角下的深度图shad_zbuffer
         // 遍历所有模型
         for (Model model : models) {
             // 遍历所有三角形
             for (int i = 0; i < model.nfaces(); i++) {
-                // 获取三角形面上的三个顶点对应的eye坐标,clip坐标,eye空间的法向量,纹理坐标
+                // 获取三角形面上的三个顶点对应的eye坐标,clip坐标,eye空间的法向量,纹理坐标,光线视角下的ndc坐标
                 Vec3[] eye_coords = new Vec3[3];
                 Vec3[] clip_coords = new Vec3[3];
                 Vector[] eye_norms = new Vector[3];
                 Vec2[] tex_coords = new Vec2[3];
+                Vec3[] gl_NDC_coords = new Vec3[3];
 
                 for (int j = 0; j < 3; j++) {
                     // 计算顶点的eye空间坐标
-                    double[][] M = Matrix.product(globalToEyeMatrix, model.vert(i, j).matrix());
+                    double[][] M = Matrix.product(eyeView, model.vert(i, j).matrix());
                     eye_coords[j] = new Vec3(M[0][0], M[1][0], M[2][0], M[3][0]);
                     // 计算顶点的clip坐标
                     clip_coords[j] = new Vec3(Matrix.product(perspective, M));
                     // 利用文件提供的顶点在global空间的法向量，计算顶点在eye空间的法向量
                     eye_norms[j] = new Vector(Matrix.product(normMatrix, model.norm(i, j).matrix())).normalize();
                     tex_coords[j] = model.texcoord(i, j);
+                    /*
+                    //  计算顶点在光线视角下的clip坐标
+                    Vec3 lg_clip = new Vec3(Matrix.product(shadowMatrix, eye_coords[j].matrix()));
+                    gl_NDC_coords[j] = lg_clip.scale(1 / lg_clip.w());
+
+                     */
                 }
 
-                Vertex a = new Vertex(eye_coords[0], eye_norms[0], clip_coords[0], tex_coords[0]);
-                Vertex b = new Vertex(eye_coords[1], eye_norms[1], clip_coords[1], tex_coords[1]);
-                Vertex c = new Vertex(eye_coords[2], eye_norms[2], clip_coords[2], tex_coords[2]);
+                Vertex a = new Vertex(eye_coords[0], eye_norms[0], clip_coords[0], tex_coords[0], gl_NDC_coords[0]);
+                Vertex b = new Vertex(eye_coords[1], eye_norms[1], clip_coords[1], tex_coords[1], gl_NDC_coords[1]);
+                Vertex c = new Vertex(eye_coords[2], eye_norms[2], clip_coords[2], tex_coords[2], gl_NDC_coords[2]);
 
                 Fragment clip = new Fragment(a, b, c);
+
                 // 调用shader
-                IShader shader = new IShader(lightPos, model.textures(), model_view, normMatrix);
-                rasterise(clip, shader, screen);
+                IShader shader = new IShader(model.textures(), modelView, normMatrix);
+                rasterise(clip, shader, screen, viewport);
             }
         }
     }
 
-    public void rasterise(Fragment clip, IShader shader, int[] screen) {
-        //  除以w分量
+    public void rasterise(Fragment clip, IShader shader, int[] screen, double[][] viewport) {
+        // 除以w分量
         double rp_aw = clip.a().clip_recip_w();
         double rp_bw = clip.b().clip_recip_w();
         double rp_cw = clip.c().clip_recip_w();
-        //  得到ndc坐标点
+        // 得到ndc坐标点
         Vec3 a = clip.a().clip_coord().scale(rp_aw);
         Vec3 b = clip.b().clip_coord().scale(rp_bw);
         Vec3 c = clip.c().clip_coord().scale(rp_cw);
@@ -219,15 +369,40 @@ public class openGL {
                 double eye_beta = persp_b * area;
                 double eye_gamma = persp_c * area;
 
-                // 使用eye空间的片段插值, 来计算该像素点的eye空间的插值坐标
+                // 用eye空间的片段插值, 来计算该像素点的eye空间的插值坐标
                 Vec3 eyePos = clip.eyePos_interpolate(eye_alpha, eye_beta, eye_gamma);
+                // 计算像素点所接收到的光线light
+                Vector light = lgEyePos.minus(eyePos);
+
+                // 计算阴影映射
+                double lightIntensity = 1.0; // 默认受光照 (强度1.0)
+
+                /*
+                //  用eye空间的片段插值, 来计算像素点以光线为视角的屏幕坐标
+                Vec3 v = clip.shadPos_interpolate(eye_alpha, eye_beta, eye_gamma);
+                int shadow_x = (int) ((v.x() + 1) * Width / 2.0);
+                int shadow_y = (int) ((v.y() + 1) * Height / 2.0);
+                double cur_z = v.z() * (100000.0 / 2.0) + (100000.0 / 2.0);
+
+                //  超出光线视野的像素点默认有光线
+                if (shadow_x >= 0 && shadow_x < Width && shadow_y >= 0 && shadow_y < Height) {
+                    int shad_index = shadow_x + shadow_y * Width;
+                    double closet_depth = shad_zbuffer[shad_index];
+                    double bias = 10;// 容错值
+                    if (cur_z - bias < closet_depth) {
+                        lightIntensity = 0.0;
+                    }
+                }
+
+                 */
+
                 // 使用eye空间的片段插值, 来计算该像素点的法线
                 Vector n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma);
                 // 使用屏幕上的片段插值, 来计算纹理坐标
                 Vec2 t = clip.tex_interpolate(eye_alpha, eye_beta, eye_gamma);
 
-                // 对该像素点着色
-                int[] colors = shader.fragment(clip, n, t, eyePos);
+                // 对该像素点进行Phong shading
+                int[] colors = shader.fragment(clip, lightIntensity, light, n, t);
                 int screenY;
                 if (isUpsideDown) {
                     screenY = y;

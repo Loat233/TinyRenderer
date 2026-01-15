@@ -36,6 +36,13 @@ public class Fragment {
         return v0.add(v1).add(v2);
     }
 
+    public Vec3 shadPos_interpolate(double alpha, double beta, double gamma) {
+        Vec3 v0 = a.shad_coord().scale(alpha);
+        Vec3 v1 = b.shad_coord().scale(beta);
+        Vec3 v2 = c.shad_coord().scale(gamma);
+        return v0.add(v1).add(v2);
+    }
+
     public Vertex a() {
         return a;
     }
