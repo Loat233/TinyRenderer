@@ -27,11 +27,11 @@ public class IShader {
             return rgb;
         }
         // 计算eye空间下像素点法线
-        // 直接使用插值法线计算:
-        // norm = norm.normalize();
-        // 使用global space normal mapping:
-        norm = global_space_norm(tex).normalize();
-        // norm = tangent_space_norm(clip, norm, tex).normalize();
+        // 直接使用插值法线计算,则直接使用norm
+        // 若使用global space normal mapping:
+        norm = global_space_norm(tex);
+        // 若使用tangent space normal mapping:
+        // norm = tangent_space_norm(clip, norm, tex);
 
         // 计算光线的衰减值(attenuation)
         double kc = 1.0;
@@ -60,12 +60,11 @@ public class IShader {
 
     private Vector global_space_norm(Vec2 tex) {
         Vector v = textures[0].getVector(tex.x(), 1 - tex.y());
-        return new Vector(Matrix.product(normMatrix, v.matrix()));
+        return new Vector(Matrix.product(normMatrix, v.matrix())).normalize();
     }
 
     // 计算eye空间下像素点法线
     private Vector tangent_space_norm(Fragment clip, Vector norm, Vec2 tex) {
-        norm = norm.normalize();
         Vec3 p0 = clip.a().eye_coord();
         Vec3 p1 = clip.b().eye_coord();
         Vec3 p2 = clip.c().eye_coord();
@@ -107,6 +106,6 @@ public class IShader {
                 { uv_norm.y() },
                 { uv_norm.z() }
         };
-        return new Vector(Matrix.product(D, uv));
+        return new Vector(Matrix.product(D, uv)).normalize();
     }
 }

@@ -37,8 +37,8 @@ public class openGL {
         this.Width = Width;
         this.Height = Height;
 
-        shad_zbuffer = clear_zbuffer(Width, Height);
-        zbuffer = clear_zbuffer(Width, Height);
+        shad_zbuffer = new double[Width * Height];
+        zbuffer = new double[Width * Height];
         isUpsideDown = false;
     }
 
@@ -117,7 +117,7 @@ public class openGL {
          * fov = fov * Math.PI / 180.0;
          * double fh = Math.tan(fov / 2);
          * double aspect = (double) Width / (double) Height;
-         * 
+         *
          * perspective = new double[][] {
          * {fh, 0, 0, 0},
          * {0, fh * aspect, 0, 0},
@@ -145,10 +145,8 @@ public class openGL {
         };
     }
 
-    private double[] clear_zbuffer(int width, int height) {
-        double[] buffer = new double[height * width];
+    private void clear_zbuffer(double[] buffer) {
         Arrays.fill(buffer, Double.NEGATIVE_INFINITY);
-        return buffer;
     }
 
     public void render(Model[] models, int[] screen) {
@@ -165,6 +163,8 @@ public class openGL {
         viewport = getViewport(startX, startY, Width, Height);
         //  加载合并矩阵
         this.shadClipMatrix = Matrix.product(perspective, modelView);
+        //  清空阴影的深度缓冲区
+        clear_zbuffer(this.shad_zbuffer);
         //  加载阴影图
         render_shadMap(models, modelView, perspective, viewport);
 
@@ -180,6 +180,8 @@ public class openGL {
         double[][] inv_eyeView = Matrix.inverse(eyeView);
         this.shadowMatrix = Matrix.product(shadClipMatrix, inv_eyeView);
         this.normMatrix = Matrix.eliminate(Matrix.transpose(inv_eyeView));
+        //  清空画面的深度缓冲区
+        clear_zbuffer(this.zbuffer);
         //  加载模型和光影
         render_model(models, screen, modelView, perspective, viewport);
     }
@@ -330,34 +332,39 @@ public class openGL {
                 double eye_beta = persp_b * area;
                 double eye_gamma = persp_c * area;
 
-                // 用eye空间的片段插值, 来计算该像素点的eye空间的插值坐标
-                Vec3 eyePos = clip.eyePos_interpolate(eye_alpha, eye_beta, eye_gamma);
                 // 计算像素点所接收到的光线light
+                Vec3 eyePos = clip.eyePos_interpolate(eye_alpha, eye_beta, eye_gamma); // 用eye空间的片段插值, 来计算该像素点的eye空间的插值坐标
                 Vector light = lgEyePos.minus(eyePos);
+                Vector n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma).normalize(); // 使用eye空间的片段插值, 来计算该像素点的法线
+
 
                 // 计算阴影映射
                 double lightIntensity = 1.0; // 默认受光照 (强度1.0)
+                double angle = n.product(light.normalize());
+                // 如果法线方向背对光线，则光照为0,无需查找阴影的深度图
+                if (angle < 0) {
+                    lightIntensity = 0.0;
+                }
+                else {
+                    // 计算像素点对应的光线视角下的屏幕坐标点
+                    Vec3 ndc_v = clip.shadPos_interpolate(eye_alpha, eye_beta, eye_gamma); // 计算像素点以光线为视角的ndc坐标
+                    Vec3 v = new Vec3(Matrix.product(viewport, ndc_v.matrix()));
+                    int shadow_x = (int) v.x();
+                    int shadow_y = (int) v.y();
+                    double cur_z = v.z();
 
-                //  用eye空间的片段插值, 来计算像素点以光线为视角的屏幕坐标
-                Vec3 ndc_v = clip.shadPos_interpolate(eye_alpha, eye_beta, eye_gamma);
-                Vec3 v = new Vec3(Matrix.product(viewport, ndc_v.matrix()));
-
-                int shadow_x = (int) v.x();
-                int shadow_y = (int) v.y();
-                double cur_z = v.z();
-
-                //  超出光线视野的像素点默认有光线
-                if (shadow_x >= 0 && shadow_x < Width && shadow_y >= 0 && shadow_y < Height) {
-                    int shad_index = shadow_x + shadow_y * Width;
-                    double closet_depth = shad_zbuffer[shad_index];
-                    double bias = 0.01;// 容错值
-                    if (cur_z - bias < closet_depth) {
-                        lightIntensity = 0.0;
+                    //  超出光线视野的像素点默认有光线
+                    if (shadow_x >= 0 && shadow_x < Width && shadow_y >= 0 && shadow_y < Height) {
+                        int shad_index = shadow_x + shadow_y * Width;
+                        double closet_depth = shad_zbuffer[shad_index];
+                        double bias = 50;// 容错值
+                        if (cur_z + bias < closet_depth) {
+                            lightIntensity = 0.0;
+                        }
                     }
                 }
 
-                // 使用eye空间的片段插值, 来计算该像素点的法线
-                Vector n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma);
+
                 // 使用屏幕上的片段插值, 来计算纹理坐标
                 Vec2 t = clip.tex_interpolate(eye_alpha, eye_beta, eye_gamma);
 
