@@ -198,15 +198,18 @@ public class openGL {
                 Vec3[] coords = new Vec3[3];
                 for (int j = 0; j < 3; j++) {
                     Vec3 clip_v = new Vec3(Matrix.product(shadClipMatrix, model.vert(i, j).matrix())); // 计算顶点的clip空间坐标
-                    Vec3 ndc_v = clip_v.scale(1 / clip_v.w()); // 计算顶点的ndc坐标
+                    Vec3 ndc_v = clip_v.scale(1 / clip_v.w());
                     coords[j] = new Vec3(Matrix.product(viewport, ndc_v.matrix()));
                 }
-                shadRasterise(coords[0], coords[1], coords[2]);
+                shadRasterise(coords);
             }
         }
     }
 
-    private void shadRasterise(Vec3 a, Vec3 b, Vec3 c) {
+    private void shadRasterise(Vec3[] frag) {
+        Vec3 a = frag[0];
+        Vec3 b = frag[1];
+        Vec3 c = frag[2];
         double sign_area = sign_triangle_area(a, b, c);
         if (sign_area < 1) {
             return;
@@ -218,8 +221,9 @@ public class openGL {
                 double alpha = sign_triangle_area(p, b, c) / sign_area;
                 double beta = sign_triangle_area(p, c, a) / sign_area;
                 double gamma = 1 - alpha - beta;
-                double z = alpha * a.z() + beta * b.z() + gamma * c.z();
 
+                // 计算屏幕上的点p在eye空间的坐标z值
+                double z = alpha * a.z() + beta * b.z() + gamma * c.z();
                 // 允许小的容差值
                 final double Epsilon = 1e-10;
                 if (alpha < -Epsilon || beta < -Epsilon || gamma < -Epsilon) {
@@ -250,7 +254,6 @@ public class openGL {
                 Vec3[] clip_coords = new Vec3[3];
                 Vector[] eye_norms = new Vector[3];
                 Vec2[] tex_coords = new Vec2[3];
-                Vec3[] shad_coords = new Vec3[3];
 
                 for (int j = 0; j < 3; j++) {
                     // 计算顶点的eye空间坐标
@@ -261,14 +264,11 @@ public class openGL {
                     // 利用文件提供的顶点在global空间的法向量，计算顶点在eye空间的法向量
                     eye_norms[j] = new Vector(Matrix.product(normMatrix, model.norm(i, j).matrix())).normalize();
                     tex_coords[j] = model.texcoord(i, j);
-                    //  计算顶点在光线视角下的ndc坐标
-                    Vec3 lgClip = new Vec3(Matrix.product(shadowMatrix, eye_coords[j].matrix()));
-                    shad_coords[j] = lgClip.scale(1 / lgClip.w());
                 }
 
-                Vertex a = new Vertex(eye_coords[0], eye_norms[0], clip_coords[0], tex_coords[0], shad_coords[0]);
-                Vertex b = new Vertex(eye_coords[1], eye_norms[1], clip_coords[1], tex_coords[1], shad_coords[1]);
-                Vertex c = new Vertex(eye_coords[2], eye_norms[2], clip_coords[2], tex_coords[2], shad_coords[2]);
+                Vertex a = new Vertex(eye_coords[0], eye_norms[0], clip_coords[0], tex_coords[0]);
+                Vertex b = new Vertex(eye_coords[1], eye_norms[1], clip_coords[1], tex_coords[1]);
+                Vertex c = new Vertex(eye_coords[2], eye_norms[2], clip_coords[2], tex_coords[2]);
 
                 Fragment clip = new Fragment(a, b, c);
 
@@ -337,7 +337,6 @@ public class openGL {
                 Vector light = lgEyePos.minus(eyePos);
                 Vector n = clip.norm_interpolate(eye_alpha, eye_beta, eye_gamma).normalize(); // 使用eye空间的片段插值, 来计算该像素点的法线
 
-
                 // 计算阴影映射
                 double lightIntensity = 1.0; // 默认受光照 (强度1.0)
                 double angle = n.product(light.normalize());
@@ -347,7 +346,9 @@ public class openGL {
                 }
                 else {
                     // 计算像素点对应的光线视角下的屏幕坐标点
-                    Vec3 ndc_v = clip.shadPos_interpolate(eye_alpha, eye_beta, eye_gamma); // 计算像素点以光线为视角的ndc坐标
+                    Vec3 lg_clipPos = new Vec3(Matrix.product(shadowMatrix,eyePos.matrix()));
+                    Vec3 ndc_v = lg_clipPos.scale(1.0 / lg_clipPos.w());
+
                     Vec3 v = new Vec3(Matrix.product(viewport, ndc_v.matrix()));
                     int shadow_x = (int) v.x();
                     int shadow_y = (int) v.y();
@@ -357,7 +358,7 @@ public class openGL {
                     if (shadow_x >= 0 && shadow_x < Width && shadow_y >= 0 && shadow_y < Height) {
                         int shad_index = shadow_x + shadow_y * Width;
                         double closet_depth = shad_zbuffer[shad_index];
-                        double bias = 50;// 容错值
+                        double bias = 4000;// 容错值
                         if (cur_z + bias < closet_depth) {
                             lightIntensity = 0.0;
                         }
