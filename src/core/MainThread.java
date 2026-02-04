@@ -68,8 +68,6 @@ public class MainThread extends JFrame{
             double lgz = 1.5 * Math.cos(degree * 5 * Math.PI / 180.0);
              */
 
-
-
             render(renderer, models, degree);
             degree = (degree + 1) % 360;
             frameIndex++;
@@ -112,12 +110,12 @@ public class MainThread extends JFrame{
         double eye_z = 5 * Math.sin(n);
          */
 
-        Vec3 eye = new Vec3(5, 0, 5, 1);
-        Vec3 center = new Vec3(0, 0, 0, 1);
-        Vector up = new Vector(0, 1, 0);
+        double[] eye = new double[]{5, 0, 5, 1};
+        double[] center = new double[]{0, 0, 0, 1};
+        double[] up = new double[]{0, 1, 0};
 
         //  点光源参数
-        renderer.init_lightPos(new Vec3(3, 10, 0, 1));
+        renderer.init_lightPos(new double[]{3, 10, 0, 1});
         //  相机参数
         renderer.camera(eye, center, up, 10);
         //  模型朝向角度

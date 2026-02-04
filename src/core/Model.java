@@ -9,9 +9,9 @@ import java.util.List;
 public class Model {
     private final String path;
 
-    private final List<Vec3> verts;        // 顶点数组
-    private final List<Vector> norms;        // 法向量数组
-    private final List<Vec2> texCoords;    // 纹理坐标数组
+    private final List<double[]> verts;        // 顶点数组
+    private final List<double[]> norms;        // 法向量数组
+    private final List<double[]> texCoords;    // 纹理坐标数组
 
     private final List<Integer> facet_vrt; // 每个三角形在顶点数组中的索引
     private final List<Integer> facet_nrm; // 每个三角形在法向量数组中的索引
@@ -82,7 +82,7 @@ public class Model {
                 double x = Double.parseDouble(parts[1]);
                 double y = Double.parseDouble(parts[2]);
                 double z = Double.parseDouble(parts[3]);
-                verts.add(new Vec3(x, y, z, 1));
+                verts.add(new double[]{x, y, z, 1});
             }
             catch (NumberFormatException e) {
                 System.err.println("顶点数据格式错误: " + line);
@@ -102,7 +102,7 @@ public class Model {
                 double u = Double.parseDouble(parts[1]);
                 double v = Double.parseDouble(parts[2]);
                 // 如果存在w分量，忽略它
-                texCoords.add(new Vec2(u, v));
+                texCoords.add(new double[]{u, v});
             }
             catch (NumberFormatException e) {
                 System.err.println("纹理坐标数据格式错误: " + line);
@@ -123,7 +123,7 @@ public class Model {
                 double x = Double.parseDouble(parts[1]);
                 double y = Double.parseDouble(parts[2]);
                 double z = Double.parseDouble(parts[3]);
-                norms.add(new Vector(x, y, z));
+                norms.add(new double[]{x, y, z});
             }
             catch (NumberFormatException e) {
                 System.err.println("法向量数据格式错误: " + line);
@@ -334,7 +334,7 @@ public class Model {
     }
 
     // 获取索引为i的顶点
-    public Vec3 vert(int i) {
+    public double[] vert(int i) {
         if (i < 0 || i >= verts.size()) {
             throw new IndexOutOfBoundsException("顶点索引越界: " + i);
         }
@@ -342,7 +342,7 @@ public class Model {
     }
 
     //获取索引为iface的面内的顶点
-    public Vec3 vert(int iface, int nthvert) {
+    public double[] vert(int iface, int nthvert) {
         if (iface < 0 || iface >= nfaces()) {
             throw new IndexOutOfBoundsException("面索引越界: " + iface);
         }
@@ -360,7 +360,7 @@ public class Model {
     }
 
     // 获取索引为i的纹理顶点
-    public Vec2 texcoord(int i) {
+    public double[] texcoord(int i) {
         if (i < 0 || i >= texCoords.size()) {
             throw new IndexOutOfBoundsException("纹理坐标索引越界: " + i);
         }
@@ -368,7 +368,7 @@ public class Model {
     }
 
     // 获得索引为iface的面内的纹理顶点
-    public Vec2 texcoord(int iface, int nthvert) {
+    public double[] texcoord(int iface, int nthvert) {
         if (iface < 0 || iface >= nfaces()) {
             throw new IndexOutOfBoundsException("面索引越界: " + iface);
         }
@@ -389,7 +389,7 @@ public class Model {
     }
 
     // 获取索引为i的法向量
-    public Vector norm(int i) {
+    public double[] norm(int i) {
         if (i < 0 || i >= norms.size()) {
             throw new IndexOutOfBoundsException("法向量索引越界: " + i);
         }
@@ -397,7 +397,7 @@ public class Model {
     }
 
     // 获取索引为iface的面内的法向量
-    public Vector norm(int iface, int nthvert) {
+    public double[] norm(int iface, int nthvert) {
         if (iface < 0 || iface >= nfaces()) {
             throw new IndexOutOfBoundsException("面索引越界: " + iface);
         }

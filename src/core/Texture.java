@@ -7,6 +7,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.Iterator;
 
+import static core.openGL.normalize;
+
 public class Texture {
     private int width;
     private int height;
@@ -59,7 +61,7 @@ public class Texture {
         }
     }
 
-    public Vector getVector(double u, double v) {
+    public double[] getVector(double u, double v) {
         u = u - Math.floor(u);
         v = v - Math.floor(v);
         int x = (int) (u * (width - 1));
@@ -75,19 +77,17 @@ public class Texture {
         double vy = g * d - 1;
         double vz = b * d - 1;
 
-        return new Vector(vx, vy, vz).normalize();
+        double[] vec = new double[]{vx, vy, vz};
+        normalize(vec);
+        return vec;
     }
 
-    public int[] getRGB(double u, double v) {
+    public int getRGB(double u, double v) {
         u = u - Math.floor(u);
         v = v - Math.floor(v);
         int x = (int) (u * (width - 1));
         int y = (int) (v * (height - 1));
 
-        int color = data[y][x];
-        int r = (color >> 16) & 0xFF;
-        int g = (color >> 8) & 0xFF;
-        int b = color & 0xFF;
-        return new int[]{r, g, b};
+        return data[y][x];
     }
 }
