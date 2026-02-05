@@ -61,7 +61,10 @@ public class Texture {
         }
     }
 
-    public double[] getVector(double u, double v) {
+    public void getVector(double u, double v, double[] dest) {
+        if (dest.length != 3) {
+            throw new IllegalArgumentException("结果数组不是向量!");
+        }
         u = u - Math.floor(u);
         v = v - Math.floor(v);
         int x = (int) (u * (width - 1));
@@ -73,13 +76,10 @@ public class Texture {
         double r = color & 0xFF;
 
         double d = 1 / 127.5;
-        double vx = r * d - 1;
-        double vy = g * d - 1;
-        double vz = b * d - 1;
-
-        double[] vec = new double[]{vx, vy, vz};
-        normalize(vec);
-        return vec;
+        dest[0] = r * d - 1;
+        dest[1] = g * d - 1;
+        dest[2]  = b * d - 1;
+        normalize(dest);
     }
 
     public int getRGB(double u, double v) {

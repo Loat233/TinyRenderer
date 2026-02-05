@@ -61,9 +61,10 @@ public class Model {
         }
     }
 
+    //  读取纹理文件
     private void loadTexture(String filename) {
         //  tangent space normal mapping
-        this.textures[0] = new Texture(path + filename + "_nm.tga");
+        this.textures[0] = new Texture(path + filename + "_nm_tangent.tga");
         //  diffuse texture
         this.textures[1]  = new Texture(path + filename + "_diffuse.tga");
         //  specular texture
@@ -72,8 +73,8 @@ public class Model {
         this.textures[3] = new Texture(path + filename + "_glow.tga");
     }
 
-    /**
-     * 处理顶点行: v x y z
+    /*
+        处理顶点行: v x y z
      */
     private void processVertexLine(String line) {
         String[] parts = line.split("\\s+");

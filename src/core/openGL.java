@@ -15,7 +15,7 @@ public class openGL {
     private double[] eye;       // 三维顶点: 相机global位置
     private double[] center;    // 三维顶点: 观察中心点
     private double[] up;        // 向量
-    private double[] eye_light;     // 三维顶点: 光源eye坐标
+    private double[] eye_light = new double[4];     // 三维顶点: 光源eye坐标
 
     // 合并矩阵
     private double[][] eyeView;
@@ -71,9 +71,12 @@ public class openGL {
     }
 
     private double[][] getBases(double[] eye, double[] center, double[] up) {
-        double[] z_axis = minus(eye, center);
-        double[] x_axis = product(up, z_axis);
-        double[] y_axis = product(z_axis, x_axis);
+        double[] x_axis = new double[3];
+        double[] y_axis = new double[3];
+        double[] z_axis = new double[3];
+        minus(eye, center, z_axis);         //  赋值z_axis
+        product(up, z_axis, x_axis);        //  赋值x_axis
+        product(z_axis, x_axis, y_axis);    //  赋值y_axis
         //  不会传递修改
         normalize(x_axis);
         normalize(y_axis);
@@ -191,7 +194,7 @@ public class openGL {
         viewport = getViewport(startX, startY, Width, Height);
         // 加载合并矩阵
         eyeView = getEyeView(modelView);
-        this.eye_light = Matrix.vec_product(modelView, glob_light);
+        Matrix.vec_product(modelView, glob_light, this.eye_light);
         double[][] inv_eyeView = Matrix.inverse(eyeView);
         this.shadowMatrix = Matrix.product(shadClipMatrix, inv_eyeView);
         this.normMatrix = Matrix.eliminate(Matrix.transpose(inv_eyeView));
@@ -207,14 +210,17 @@ public class openGL {
         if (modelView == null || perspective == null || viewport == null) {
             throw new IllegalArgumentException("先加载矩阵!");
         }
-        // 遍历所有模型
+        double[] v0 = new double[4];
+        double[] v1 = new double[4];
+        double[] v2 = new double[4];
+        //  遍历所有模型
         for (Model model : models) {
-            // 遍历所有三角形
+            //  遍历所有三角形
             for (int i = 0; i < model.nfaces(); i++) {
                 // global -> clip
-                double[] v0 = Matrix.vec_product(shadClipMatrix, model.vert(i, 0));
-                double[] v1 = Matrix.vec_product(shadClipMatrix, model.vert(i, 1));
-                double[] v2 = Matrix.vec_product(shadClipMatrix, model.vert(i, 2));
+                Matrix.vec_product(shadClipMatrix, model.vert(i, 0), v0);
+                Matrix.vec_product(shadClipMatrix, model.vert(i, 1), v1);
+                Matrix.vec_product(shadClipMatrix, model.vert(i, 2), v2);
                 //  clip -> ndc
                 scale(v0, 1 / v0[3]);
                 scale(v1, 1 / v1[3]);
@@ -224,23 +230,30 @@ public class openGL {
                 v1[3] = 1;
                 v2[3] = 1;
                 //  ndc -> screen
-                v0 = Matrix.vec_product(viewport, v0);
-                v1 = Matrix.vec_product(viewport, v1);
-                v2 = Matrix.vec_product(viewport, v2);
+                Matrix.vec_product(viewport, v0, v0);
+                Matrix.vec_product(viewport, v1, v1);
+                Matrix.vec_product(viewport, v2, v2);
                 shadRasterise(v0, v1, v2);
             }
         }
     }
 
-    //  三维顶点:a, b, c
+    //  screen空间: 三维顶点:a, b, c
     private void shadRasterise(double[] a, double[] b, double[] c) {
         double sign_area = sign_triangle_area(a, b, c);
         if (sign_area < 1) {
             return;
         }
+
+        double[] p = new double[4];      //  screen空间: 三维顶点p;
         for (int x = bbmin(a[0], b[0], c[0]); x < bbmax(a[0], b[0], c[0]); x++) {
             for (int y = bbmin(a[1], b[1], c[1]); y < bbmax(a[1], b[1], c[1]); y++) {
-                double[] p = new double[]{x + 0.5, y + 0.5, 0, 1};
+                //  赋值点p
+                p[0] = x + 0.5;
+                p[1] = y + 0.5;
+                p[2] = 0;
+                p[3] = 1;
+
                 // 计算在2D屏幕上的插值
                 double alpha = sign_triangle_area(p, b, c) / sign_area;
                 double beta = sign_triangle_area(p, c, a) / sign_area;
@@ -265,38 +278,46 @@ public class openGL {
         }
     }
 
-    private void render_model(Model[] models, int[] screen, double[][] modelView, double[][] perspective,
-            double[][] viewport) {
+    private void render_model(Model[] models, int[] screen, double[][] modelView, double[][] perspective, double[][] viewport) {
         if (modelView == null || perspective == null || viewport == null) {
             throw new IllegalArgumentException("先加载矩阵!");
         }
+
+        //  三角形顶点: double[][]{eye顶点, tex顶点, eye空间法向量}
+        double[][] a = new double[3][];
+        a[0] = new double[4];
+        a[1] = new double[2];
+        a[2] = new double[3];
+        double[][] b = new double[3][];
+        b[0] = new double[4];
+        b[1] = new double[2];
+        b[2] = new double[3];
+        double[][] c = new double[3][];
+        c[0] = new double[4];
+        c[1] = new double[2];
+        c[2] = new double[3];
         // 遍历所有模型
         for (Model model : models) {
             // 遍历所有三角形
             for (int i = 0; i < model.nfaces(); i++) {
-                //  三角形顶点: double[][]{eye顶点, tex顶点, eye空间法向量}
-                double[][] a = new double[3][];
-                double[][] b = new double[3][];
-                double[][] c = new double[3][];
-
                 //  获取eye顶点
-                a[0] = Matrix.vec_product(eyeView, model.vert(i, 0));
-                b[0] = Matrix.vec_product(eyeView, model.vert(i, 1));
-                c[0] = Matrix.vec_product(eyeView, model.vert(i, 2));
+                Matrix.vec_product(eyeView, model.vert(i, 0), a[0]);
+                Matrix.vec_product(eyeView, model.vert(i, 1), b[0]);
+                Matrix.vec_product(eyeView, model.vert(i, 2), c[0]);
                 //  获取tex顶点
                 a[1] = model.texcoord(i, 0);
                 b[1] = model.texcoord(i, 1);
                 c[1] = model.texcoord(i, 2);
                 //  获取法向量
-                a[2] = Matrix.vec_product(normMatrix, model.norm(i, 0));
-                b[2] = Matrix.vec_product(normMatrix, model.norm(i, 1));
-                c[2] = Matrix.vec_product(normMatrix, model.norm(i, 2));
+                Matrix.vec_product(normMatrix, model.norm(i, 0), a[2]);
+                Matrix.vec_product(normMatrix, model.norm(i, 1), b[2]);
+                Matrix.vec_product(normMatrix, model.norm(i, 2), c[2]);
                 //  法向量归一化
                 normalize(a[2]);
                 normalize(b[2]);
                 normalize(c[2]);
                 // 初始化shader
-                IShader shader = new IShader(model.textures(), normMatrix);
+                IShader shader = new IShader(a, b, c, model.textures(), normMatrix);
                 rasterise(a, b, c, perspective, viewport, shader, screen);
             }
         }
@@ -305,9 +326,12 @@ public class openGL {
     //  三角形顶点: double[][]{eye顶点, tex顶点, eye空间法向量}
     public void rasterise(double[][] a, double[][] b, double[][] c, double[][] perspective, double[][] viewport, IShader shader, int[] screen) {
         // eye -> clip
-        double[] v0 = Matrix.vec_product(perspective, a[0]);
-        double[] v1 = Matrix.vec_product(perspective, b[0]);
-        double[] v2 = Matrix.vec_product(perspective, c[0]);
+        double[] v0 = new double[4];
+        double[] v1 = new double[4];
+        double[] v2 = new double[4];
+        Matrix.vec_product(perspective, a[0], v0);
+        Matrix.vec_product(perspective, b[0], v1);
+        Matrix.vec_product(perspective, c[0], v2);
         // 获得w分量的倒数
         double rp_aw = 1 / v0[3];
         double rp_bw = 1 / v1[3];
@@ -321,25 +345,37 @@ public class openGL {
         v1[3] = 1;
         v2[3] = 1;
         // ndc -> screen
-        v0 = Matrix.vec_product(viewport, v0);
-        v1 = Matrix.vec_product(viewport, v1);
-        v2 = Matrix.vec_product(viewport, v2);
+        Matrix.vec_product(viewport, v0, v0);
+        Matrix.vec_product(viewport, v1, v1);
+        Matrix.vec_product(viewport, v2, v2);
 
         double sign_area = sign_triangle_area(v0, v1, v2);
 
         if (sign_area < 1) {
             return;
         }
+
+        double[] p = new double[4];         //  screen空间: 三维顶点p
+        double[] eye_p = new double[4];     //  eye空间: 三维顶点p(校正插值)
+        double[] light = new double[3];     //  eye空间: 光源到点p的向量
+        double[] n = new double[3];         //  eye空间: 点p的法线(校正插值) (会被IShader修改，但无影响)
+        double[] light_p = new double[4];     //  光源视角screen空间: 三维顶点p
+        double[] tex = new double[2];         //  点p的uv坐标(校正插值)
         for (int x = bbmin(v0[0], v1[0], v2[0]); x < bbmax(v0[0], v1[0], v2[0]); x++) {
             for (int y = bbmin(v0[1], v1[1], v2[1]); y < bbmax(v0[1], v1[1], v2[1]); y++) {
-                double[] p = new double[]{x + 0.5, y + 0.5, 0, 1};
-                // 计算在2D屏幕上的插值
+                //  赋值点p
+                p[0] = x + 0.5;
+                p[1] = y + 0.5;
+                p[2] = 0;
+                p[3] = 1;
+
+                //  计算在2D屏幕上的插值
                 double alpha = sign_triangle_area(p, v1, v2) / sign_area;
                 double beta = sign_triangle_area(p, v2, v0) / sign_area;
                 double gamma = 1 - alpha - beta;
                 double z = alpha * v0[2] + beta * v1[2] + gamma * v2[2];
 
-                // 允许小的容差值
+                //  允许小的容差值
                 final double Epsilon = 1e-10;
                 if (alpha < -Epsilon || beta < -Epsilon || gamma < -Epsilon) {
                     continue;
@@ -353,64 +389,58 @@ public class openGL {
                 }
                 zbuffer[index] = z;
 
-                // 计算屏幕上的点p的透视校正后的重心坐标
+                //  计算屏幕上的点p的透视校正后的重心坐标
                 double persp_a = alpha * rp_aw;
                 double persp_b = beta * rp_bw;
                 double persp_c = gamma * rp_cw;
                 double area = 1 / (persp_a + persp_b + persp_c);
-
                 double eye_alpha = persp_a * area;
                 double eye_beta = persp_b * area;
                 double eye_gamma = persp_c * area;
 
-                // 用eye空间的片段插值, 来计算该像素点的eye空间的插值坐标
-                double[] eye_p = interpolate(a[0], b[0], c[0], eye_alpha, eye_beta, eye_gamma);
+                interpolate(a[0], b[0], c[0], eye_alpha, eye_beta, eye_gamma, eye_p);   //  赋值eye_p: eye空间下点p(校正插值)
+                minus(eye_light, eye_p, light);                                         //   赋值light: eye空间下光源到点p的向量
 
-                // 计算到达像素点的光线light
-                double[] light = minus(eye_light, eye_p);
-                // 使用eye空间的片段插值,来计算该像素点的法线(会被IShader修改，但无影响)
-                double[] n = interpolate(a[2], b[2], c[2], eye_alpha, eye_beta, eye_gamma);
+                interpolate(a[2], b[2], c[2], eye_alpha, eye_beta, eye_gamma, n);       //  赋值n: 点p的uv坐标(校正插值)
                 normalize(n);
 
-                // 计算阴影映射
+                //  计算阴影映射
                 double lightIntensity = 1.0; // 默认受光照 (强度1.0)
-                double[] nrm_light = Arrays.copyOf(light, light.length);
-                double angle = dot(n, nrm_light);
-                // 如果法线方向背对光线，则光照为0,无需查找阴影的深度图
+                double angle = dot(n, light);
+                //  如果法线方向背对光线，则光照为0,无需查找阴影的深度图
                 if (angle < 0) {
                     lightIntensity = 0.0;
                 }
                 else {
                     //  p: eye -> 光源视角clip
-                    double[] light_p = Matrix.vec_product(shadowMatrix, eye_p);
+                    Matrix.vec_product(shadowMatrix, eye_p, light_p);
                     //  光源视角clip -> 光源视角ndc
                     scale(light_p, 1.0 / light_p[3]);
                     //  光源视角ndc -> 光源视角screen
-                    light_p = Matrix.vec_product(viewport, light_p);
+                    Matrix.vec_product(viewport, light_p, light_p);
                     int shadow_x = (int) light_p[0];
                     int shadow_y = (int) light_p[1];
                     double cur_z = light_p[2];
-
-                    // 超出光线视野的像素点默认有光线
+                    //  超出光线视野的像素点默认有光线
                     if (shadow_x >= 0 && shadow_x < Width && shadow_y >= 0 && shadow_y < Height) {
                         int shad_index = shadow_x + shadow_y * Width;
                         double closet_depth = shad_zbuffer[shad_index];
-                        double bias = 4000;// 容错值
+                        double bias = 4000; // 容错值
                         if (cur_z + bias < closet_depth) {
                             lightIntensity = 0.0;
                         }
                     }
                 }
-                // 使用屏幕上的片段插值, 来计算纹理坐标
-                double[] t = interpolate(a[1], b[1], c[1], eye_alpha, eye_beta, eye_gamma);
+                //  使用屏幕上的片段插值, 来计算纹理坐标
+                interpolate(a[1], b[1], c[1], eye_alpha, eye_beta, eye_gamma, tex);
                 int screenY;
                 if (isUpsideDown) {
                     screenY = y;
                 } else {
                     screenY = Height - 1 - y;
                 }
-                // 对该像素点进行Phong shading
-                screen[x + screenY * Width] = shader.fragment(a, b, c, lightIntensity, light, n, t);
+                //  对该像素点进行Phong shading
+                screen[x + screenY * Width] = shader.fragment(lightIntensity, light, n, tex);
             }
         }
     }
@@ -608,17 +638,23 @@ public class openGL {
         运算：x,y相加/x, y, z, w相加/向量相加
         输出：二维顶点/返回三维顶点/三维向量
      */
-    public static double[] add(double[] a, double[] b) {
+    public static void add(double[] a, double[] b, double[] dest) {
+        int k;
         if (isVert2(a) && isVert2(b)) {
-            return new double[]{(a[0] + b[0]), (a[1] + b[1])};
+            k = 2;
         }
         else if (isVert3(a) && isVert3(b)) {
-            return new double[]{(a[0] + b[0]), (a[1] + b[1]), (a[2] + b[2]), (a[3] + b[3])};
+            k = 4;
         }
         else if (isVector(a) && isVector(b)) {
-            return new double[]{(a[0] + b[0]), (a[1] + b[1]), (a[2] + b[2])};
+            k = 3;
         }
-        throw new IllegalArgumentException("相加顶点的坐标数量不同！");
+        else {
+            throw new IllegalArgumentException("相加顶点的坐标数量不同！");
+        }
+        for (int i = 0; i < k; i++) {
+            dest[i] = a[i] + b[i];
+        }
     }
 
     /*
@@ -626,74 +662,101 @@ public class openGL {
         运算：x,y相减/x, y, z相减/向量相减
         输出：二维向量/三维向量/三维向量
      */
-    public static double[] minus(double[] a, double[] b) {
+    public static void minus(double[] a, double[] b, double[] dest) {
+        int k;
         if (isVert2(a) && isVert2(b)) {
-            return new double[]{(a[0] - b[0]), (a[1] - b[1])};
+            if (!isVert2(dest)) {
+                throw new IllegalArgumentException("赋值结果的数组不是二维！");
+            }
+            k = 2;
         }
         else if (isVert3(a) && isVert3(b)) {
-            if (a[3] == 1 || b[3] == 1) {
-                return new double[]{(a[0] - b[0]), (a[1] - b[1]), (a[2] - b[2])};
+            if (!isVector(dest)) {
+                throw new IllegalArgumentException("赋值结果的数组不是向量！");
             }
-            throw new IllegalArgumentException("相加顶点的w分量不为1！");
+            if (a[3] == 1 || b[3] == 1) {
+                k = 3;
+            }
+            else {
+                throw new IllegalArgumentException("相加顶点的w分量不为1！");
+            }
         }
         else if (isVector(a) && isVector(b)) {
-            return new double[]{(a[0] - b[0]), (a[1] - b[1]), (a[2] - b[2])};
+            if (!isVector(dest)) {
+                throw new IllegalArgumentException("赋值结果的数组不是向量！");
+            }
+            k = 3;
         }
-        throw new IllegalArgumentException("相加顶点的坐标数量不同！");
+        else {
+            throw new IllegalArgumentException("相加顶点的坐标数量不同！");
+        }
+        for (int i = 0; i < k; i++) {
+            dest[i] = a[i] + b[i];
+        }
     }
 
     //  向量叉乘
-    public static double[] product(double[] a, double[] b) {
+    public static void product(double[] a, double[] b, double[] dest) {
         if (isVector(a) && isVector(b)) {
-            double i = a[1] * b[2] - a[2] * b[1];
-            double j = a[2] * b[0] - a[0] * b[2];
-            double k = a[0] * b[1] - a[1] * b[0];
-            return new double[]{i, j, k};
+            dest[0] = a[1] * b[2] - a[2] * b[1];
+            dest[1] = a[2] * b[0] - a[0] * b[2];
+            dest[2] = a[0] * b[1] - a[1] * b[0];
         }
-        throw new IllegalArgumentException("输入参数不是向量！");
+        else {
+            throw new IllegalArgumentException("输入数组不是向量！");
+        }
     }
 
-    public double[] interpolate(double[] a, double[] b, double[] c, double alpha, double beta, double gamma) {
-        double[] v0 = Arrays.copyOf(a, a.length);
-        double[] v1 = Arrays.copyOf(b, b.length);
-        double[] v2 = Arrays.copyOf(c, c.length);
-        scale(v0, alpha);
-        scale(v1, beta);
-        scale(v2, gamma);
-        return add(add(v0, v1), v2);
+    public void interpolate(double[] a, double[] b, double[] c, double alpha, double beta, double gamma, double[] dest) {
+        if (a.length != b.length && b.length != c.length && c.length != dest.length) {
+           throw new IllegalArgumentException("数组a, b, c和dest的长度不全相等！");
+        }
+        int k;  //  循环次数
+        if (isVert2(dest)) {
+           k = 2;
+        }
+        else if (isVert3(dest)) {
+           k = 4;
+        }
+        else if (isVector(dest)) {
+           k = 3;
+        }
+        else {
+            throw new IllegalArgumentException("结果数组长度错误！");
+        }
+        for (int i = 0; i < k; i++) {
+            dest[i] = a[i] * alpha + b[i] * beta + c[i] * gamma;
+        }
     }
 
-    /* 以下函数直接修改原数组 */
     //  向量归一化
-    public static void normalize(double[] vec) {
-        if (!isVector(vec)) {
-            throw new IllegalArgumentException("输入参数不是向量！");
+    public static void normalize(double[] dest) {
+        if (!isVector(dest)) {
+            throw new IllegalArgumentException("结果数组不是向量！");
         }
-        double d = 1 / Math.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
+        double d = 1 / Math.sqrt(dest[0] * dest[0] + dest[1] * dest[1] + dest[2] * dest[2]);
         for (int i = 0; i < 3; i++) {
-            vec[i] *= d;
+            dest[i] *= d;
         }
     }
 
     //  数量积
-    public static void scale(double[] v, double n) {
-        if (isVert2(v)) {
-            for (int i = 0; i < 2; i++) {
-                v[i] *= n;
-            }
+    public static void scale(double[] dest, double n) {
+        int k;
+        if (isVert2(dest)) {
+            k = 2;
         }
-        else if (isVert3(v)) {
-            for (int i = 0; i < 4; i++) {
-                v[i] *= n;
-            }
+        else if (isVert3(dest)) {
+            k = 4;
         }
-        else if (isVector(v)) {
-            for (int i = 0; i < 3; i++) {
-                v[i] *= n;
-            }
+        else if (isVector(dest)) {
+            k = 3;
         }
         else {
-            throw new IllegalArgumentException("相加顶点的坐标数量不同！");
+            throw new IllegalArgumentException("结果数组长度错误！");
+        }
+        for (int i = 0; i < k; i++) {
+            dest[i] *= n;
         }
     }
 

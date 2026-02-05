@@ -36,14 +36,16 @@ public class Matrix {
     }
 
     // 计算顶点/向量与矩阵的乘法
-    public static double[] vec_product(double[][] A, double[] v) {
+    public static void vec_product(double[][] A, double[] v, double[] dest) {
         if (column(A) != v.length) {
             throw new IllegalArgumentException("矩阵A的列数必须等于向量v的个数!");
         }
 
         int column = column(A);
         int row = row(A);
-        double[] M = new double[row];
+        if (dest.length != row) {
+            throw new IllegalArgumentException("赋值结果的数组长度不等于矩阵A的行数row！");
+        }
         double sum;
         for (int x = 0; x < row; x++) {
             sum = 0.0;
@@ -52,9 +54,8 @@ public class Matrix {
                 double b = v[k];
                 sum += a * b;
             }
-            M[x] = sum;
+            dest[x] = sum;
         }
-        return M;
     }
 
     //  计算转置矩阵
