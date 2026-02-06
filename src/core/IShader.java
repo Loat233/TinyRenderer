@@ -53,8 +53,8 @@ public class IShader {
         normalize(this.bitangent);
     }
 
-    // norm: 像素点的插值法线; tex: 像素点的插值纹理坐标
-    // 向量: light, norm; 二维坐标: tex
+    //  norm: 像素点的插值法线; tex: 像素点的插值纹理坐标
+    //  向量: light, norm; 二维坐标: tex
     //  三角形顶点: double[][]{eye顶点, tex顶点, eye空间法向量}
     public int fragment(double lightIntensity, double[] light, double[] norm, double[] tex) {
         // 获取漫反射diffuse纹理
@@ -73,33 +73,42 @@ public class IShader {
             B = (int) Math.floor(Math.min(255.0, glow_b));
             return (R << 16) | (G << 8) | B;
         }
-        // 计算eye空间下像素点法线
-        // 直接使用插值法线计算,则直接使用norm
-        // 若使用global space normal mapping:
+        //  计算eye空间下像素点法线
+        //  直接使用插值法线计算,则直接使用norm
+        //  若使用global space normal mapping:
         //  get_glob_norm(tex, norm);        // 会传递修改norm,但无影响
-        // 若使用tangent space normal mapping:
+        //  若使用tangent space normal mapping:
         get_tangent_norm(norm, tex, norm);
 
         // 计算光线的衰减值(attenuation)
         double kc = 1.0;
-        double kl = 0.009;
-        double kq = 0.032;
+        double kl = 0.005;
+        double kq = 0.002;
 
         double light_dist = sqrt(light);
-        double attenuation = 1.0 / (kc + kl * light_dist + kq * light_dist * light_dist) ;
+        double attenuation = 1.0 / (kc + kl * light_dist + kq * light_dist * light_dist);
+        attenuation = 1.0;
         normalize(light);   //  后续light都为归一向量
         double factor = dot(norm, light);
 
         // 漫反射强度 = (直射光 * 阴影系数 * 衰减) + 环境光
-        double direct_diffuse = Math.max(0.0, factor) * lightIntensity * attenuation;
-        double diff_light = direct_diffuse + 0.9;
+        double direct_diffuse = Math.max(0.0, factor) * lightIntensity * attenuation * 1.5;
+        double diff_light = direct_diffuse + 0.3;
 
-        // 高光强度 = (高光计算 * 阴影系数 * 衰减)
-        scale(norm, factor * 2);        //  会传递修改norm,但无影响
-        double[] r = new double[3];
-        minus(norm, light, r);   //  赋值r: 反射向量r
-        normalize(r);   //  赋值r: 归一化向量r
-        double spec_light = Math.pow(Math.max(0.0, r[2]), 12.0) * attenuation * lightIntensity;
+        // 当片段正对光源时, 计算高光强度 = (高光计算 * 阴影系数 * 衰减)
+        double spec_light = 0;
+        if (factor > 0) {
+            //  反射向量r = n * (2 * dot(n, l)) - l
+            scale(norm, factor * 2);        //  会传递修改norm,但无影响
+            double rx = norm[0] - light[0];
+            double ry = norm[1] - light[1];
+            double rz = norm[2] - light[2];
+            //  手动归一化反射向量r(只需要z分量)
+            double inv_d = 1 / Math.sqrt(rx * rx + ry * ry + rz * rz);
+            rz *= inv_d;
+
+            spec_light = Math.pow(Math.max(0.0, rz), 12.0) * attenuation * lightIntensity * 2.0;
+        }
 
         double base_r = ((diff_color >> 16) & 0xFF) * diff_light;
         double specular_r = ((spec_color >> 16) & 0xFF) * spec_light;
@@ -131,9 +140,29 @@ public class IShader {
     //  三角形顶点: double[][]{eye顶点, tex顶点, eye空间法向量}
     private void get_tangent_norm(double[] norm, double[] tex, double[] dest) {
         textures[0].getVector(tex[0], 1 - tex[1], tangent_norm);    //  赋值tangent_norm: tangent_norm = 切空间法向量(已归一化)
-        for (int i = 0; i < 3; i++) {
-            dest[i] = tangent[i] * tangent_norm[0] + bitangent[i] * tangent_norm[1] + norm[i] * tangent_norm[2];
-        }
+
+        /*  Gram-Schmidt 正交化, 使得tangent向量与norm法向量垂直
+         */
+        //  平滑tangent = tangent - norm * dot(tangent, norm)
+        double dotTN = dot(tangent, norm);
+        double tangent_x = tangent[0] - norm[0] * dotTN;
+        double tangent_y = tangent[1] - norm[1] * dotTN;
+        double tangent_z = tangent[2] - norm[2] * dotTN;
+        //  手动归一化tangent
+        double inv_d = 1 / Math.sqrt(tangent_x * tangent_x + tangent_y * tangent_y + tangent_z * tangent_z);
+        tangent_x *= inv_d;
+        tangent_y *= inv_d;
+        tangent_z *= inv_d;
+
+        //  平滑bitangent = norm * tangent
+        double bitangent_x = norm[1] * tangent_z - norm[2] * tangent_y;
+        double bitangent_y = norm[2] * tangent_x - norm[0] * tangent_z;
+        double bitangent_z = norm[0] * tangent_y - norm[1] * tangent_x;
+        //  使用平滑T, B, N构建最终法线
+        dest[0] = tangent_x * tangent_norm[0] + bitangent_x * tangent_norm[1] + norm[0] * tangent_norm[2];
+        dest[1] = tangent_y * tangent_norm[0] + bitangent_y * tangent_norm[1] + norm[1] * tangent_norm[2];
+        dest[2] = tangent_z * tangent_norm[0] + bitangent_z * tangent_norm[1] + norm[2] * tangent_norm[2];
+
         normalize(dest);
     }
 }

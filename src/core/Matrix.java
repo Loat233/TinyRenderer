@@ -58,15 +58,15 @@ public class Matrix {
         }
     }
 
-    //  计算转置矩阵
+    // 计算转置矩阵
     public static double[][] transpose(double[][] A) {
         int row = row(A);
         int column = column(A);
         double[][] M = new double[column][row];
         for (int x = 0; x < row; x++) {
-             for (int y = 0; y < column; y++) {
-                 M[y][x] = A[x][y];
-             }
+            for (int y = 0; y < column; y++) {
+                M[y][x] = A[x][y];
+            }
         }
         return M;
     }
@@ -155,7 +155,7 @@ public class Matrix {
 
     public static double[][] eliminate(double[][] A) {
         if (Matrix.row(A) == 4 && Matrix.column(A) == 4) {
-            return new double[][]{
+            return new double[][] {
                     Arrays.copyOf(A[0], 3),
                     Arrays.copyOf(A[1], 3),
                     Arrays.copyOf(A[2], 3)

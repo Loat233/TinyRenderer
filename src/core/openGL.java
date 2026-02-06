@@ -7,14 +7,14 @@ public class openGL {
     // 用户输入的参数
     private final int startX;
     private final int startY;
-    private final int Height;   // 屏幕高
-    private final int Width;    // 屏幕宽
-    private double degree;      // 模型自旋转角度
-    private double fol;         // 视角广度
-    private double[] glob_light;     // 三维顶点: 光源global位置
-    private double[] eye;       // 三维顶点: 相机global位置
-    private double[] center;    // 三维顶点: 观察中心点
-    private double[] up;        // 向量
+    private final int Height;       //  屏幕高
+    private final int Width;        //  屏幕宽
+    private double degree;          //  模型自旋转角度
+    private double scale;           //  镜头缩放倍数
+    private double[] glob_light;    //  三维顶点: 光源global位置
+    private double[] eye;           //  三维顶点: 相机global位置
+    private double[] center;        //  三维顶点: 观察中心点
+    private double[] up;            //  向量
     private double[] eye_light = new double[4];     // 三维顶点: 光源eye坐标
 
     // 合并矩阵
@@ -49,7 +49,7 @@ public class openGL {
     }
 
     // 用于计算model_view矩阵
-    public void camera(double[] eye, double[] center, double[] up, double fol) {
+    public void camera(double[] eye, double[] center, double[] up, double scale) {
         if (!isVert3(eye)) {
             throw new IllegalArgumentException("视角位置坐标不是三维坐标！");
         }
@@ -62,7 +62,7 @@ public class openGL {
         this.eye = eye;
         this.center = center;
         this.up = up;
-        this.fol = fol;
+        this.scale = scale;
     }
 
     // 模型围绕center点旋转
@@ -129,36 +129,37 @@ public class openGL {
     }
 
     private double[][] getPerspective(double f) {
-        /*
-         * 标准透视矩阵计算
-         * fov = fov * Math.PI / 180.0;
-         * double fh = Math.tan(fov / 2);
-         * double aspect = (double) Width / (double) Height;
-         *
-         * return new double[][] {
-         * {fh, 0, 0, 0},
-         * {0, fh * aspect, 0, 0},
-         * {0, 0, (f + n) / (n - f), 2 * f * n / (n - f)},
-         * {0, 0, -1, 0}
-         * };
-         */
+         /*
+         //  标准透视矩阵计算
+         fov = fov * Math.PI / 180.0;
+         double cot = 1 / Math.tan(fov / 2);
+         double aspect = (double) Width / (double) Height;
+
          return new double[][] {
-                { 1, 0, 0, 0},
-                { 0, 1, 0, 0},
-                { 0, 0, 1, 0},
-                { 0, 0, -1 / f, 1}
+                 {cot, 0, 0, 0},
+                 {0, cot * aspect, 0, 0},
+                 {0, 0, (far + near) / (near - far), 2 * far * near / (near - far)},
+                 {0, 0, -1, 0}
+         };
+          */
+
+        return new double[][] {
+                {1, 0, 0, 0},
+                {0, 1, 0, 0},
+                {0, 0, 1, 0},
+                {0, 0, -1 / f, 1}
         };
     }
 
     private double[][] getViewport(int x, int y, int w, int h) {
-        double a = w / 2.0;
-        double b = h / 2.0;
+        double a = w / 2.0 * scale;
+        double b = h / 2.0 * scale;
         double c = 100000.0 / 2.0;
         return new double[][] {
-                { a, 0, 0, x + a },
-                { 0, b, 0, y + b },
-                { 0, 0, c, c },
-                { 0, 0, 0, 1 }
+                {a, 0, 0, x + w / 2.0},
+                {0, b, 0, y + h / 2.0},
+                {0, 0, c, c},
+                {0, 0, 0, 1}
         };
     }
 
@@ -172,38 +173,44 @@ public class openGL {
         double[][] modelView;
         double[][] perspective;
         double[][] viewport;
-        // 加载阴影图需要的矩阵
+
+        double fx = eye[0] - center[0];
+        double fy = eye[1] - center[1];
+        double fz = eye[2] - center[2];
+        double f = Math.sqrt(fx * fx + fy * fy + fz * fz);
+
+        //  加载阴影图需要的矩阵
         coordinate = getCoordinate(getBases(glob_light, center, up));
         t_center = getTCenter(center);
         modelView = getModelView(coordinate, t_center);
         modelView = getEyeView(modelView);
-        perspective = getPerspective(fol);
+        perspective = getPerspective(f);
         viewport = getViewport(startX, startY, Width, Height);
-        // 加载合并矩阵
+        //  加载合并矩阵
         this.shadClipMatrix = Matrix.product(perspective, modelView);
-        // 清空阴影的深度缓冲区
+        //  清空阴影的深度缓冲区
         clear_zbuffer(this.shad_zbuffer);
-        // 加载阴影图
+        //  加载阴影图
         render_shadMap(models, modelView, perspective, viewport);
 
-        // 加载模型需要的矩阵
+        //  加载模型需要的矩阵
         coordinate = getCoordinate(getBases(eye, center, up));
         t_center = getTCenter(center);
         modelView = getModelView(coordinate, t_center);
-        perspective = getPerspective(fol);
+        perspective = getPerspective(f);
         viewport = getViewport(startX, startY, Width, Height);
-        // 加载合并矩阵
+        //  加载合并矩阵
         eyeView = getEyeView(modelView);
         Matrix.vec_product(modelView, glob_light, this.eye_light);
         double[][] inv_eyeView = Matrix.inverse(eyeView);
         this.shadowMatrix = Matrix.product(shadClipMatrix, inv_eyeView);
         this.normMatrix = Matrix.eliminate(Matrix.transpose(inv_eyeView));
-        // 清空画面的深度缓冲区
+        //  清空画面的深度缓冲区
         clear_zbuffer(this.zbuffer);
-        // 加载模型和光影
+        //  加载模型和光影
         render_model(models, screen, modelView, perspective, viewport);
-        // 加载ssao
-        // ssao(screen);
+        //  加载ssao
+        //  ssao(perspective, viewport, screen, f);
     }
 
     private void render_shadMap(Model[] models, double[][] modelView, double[][] perspective, double[][] viewport) {
@@ -241,11 +248,11 @@ public class openGL {
     //  screen空间: 三维顶点:a, b, c
     private void shadRasterise(double[] a, double[] b, double[] c) {
         double sign_area = sign_triangle_area(a, b, c);
-        if (sign_area < 1) {
+        if (sign_area > 0) {
             return;
         }
 
-        double[] p = new double[4];      //  screen空间: 三维顶点p;
+        double[] p = new double[4];      //  screen空间: 三维顶点p
         for (int x = bbmin(a[0], b[0], c[0]); x < bbmax(a[0], b[0], c[0]); x++) {
             for (int y = bbmin(a[1], b[1], c[1]); y < bbmax(a[1], b[1], c[1]); y++) {
                 //  赋值点p
@@ -399,13 +406,13 @@ public class openGL {
                 double eye_gamma = persp_c * area;
 
                 interpolate(a[0], b[0], c[0], eye_alpha, eye_beta, eye_gamma, eye_p);   //  赋值eye_p: eye空间下点p(校正插值)
-                minus(eye_light, eye_p, light);                                         //   赋值light: eye空间下光源到点p的向量
+                minus(eye_light, eye_p, light);                                         //  赋值light: eye空间下光源到点p的向量
 
                 interpolate(a[2], b[2], c[2], eye_alpha, eye_beta, eye_gamma, n);       //  赋值n: 点p的uv坐标(校正插值)
                 normalize(n);
 
                 //  计算阴影映射
-                double lightIntensity = 1.0; // 默认受光照 (强度1.0)
+                double lightIntensity; //  光照强度
                 double angle = dot(n, light);
                 //  如果法线方向背对光线，则光照为0,无需查找阴影的深度图
                 if (angle < 0) {
@@ -418,18 +425,41 @@ public class openGL {
                     scale(light_p, 1.0 / light_p[3]);
                     //  光源视角ndc -> 光源视角screen
                     Matrix.vec_product(viewport, light_p, light_p);
-                    int shadow_x = (int) light_p[0];
-                    int shadow_y = (int) light_p[1];
-                    double cur_z = light_p[2];
+                    int px = (int) light_p[0];
+                    int py = (int) light_p[1];
+                    double pz = light_p[2];
+
+                    // PCF 3x3 采样 平滑阴影边缘
+                    double shadow_sum = 0.0;
+                    double bias = 5.0; // 较小的偏移值
+                    for (int i = -1; i <= 1; i++) {
+                        for (int j = -1; j <= 1; j++) {
+                            int nx = px + i;
+                            int ny = py + j;
+                            if (nx >= 0 && nx < Width && ny >= 0 && ny < Height) {
+                                int idx = nx + ny * Width;
+                                // 如果点比阴影图记录的深度更“近”或相等(数值更大)，则被照亮
+                                if (pz + bias >= shad_zbuffer[idx]) {
+                                    shadow_sum += 1.0;
+                                }
+                            } else {
+                                shadow_sum += 1.0; // 越界视为照亮
+                            }
+                        }
+                    }
+                    lightIntensity = shadow_sum / 9.0;
+                    /*
                     //  超出光线视野的像素点默认有光线
                     if (shadow_x >= 0 && shadow_x < Width && shadow_y >= 0 && shadow_y < Height) {
                         int shad_index = shadow_x + shadow_y * Width;
                         double closet_depth = shad_zbuffer[shad_index];
-                        double bias = 4000; // 容错值
+                        double bias = 20; // 容错值
                         if (cur_z + bias < closet_depth) {
                             lightIntensity = 0.0;
                         }
                     }
+
+                     */
                 }
                 //  使用屏幕上的片段插值, 来计算纹理坐标
                 interpolate(a[1], b[1], c[1], eye_alpha, eye_beta, eye_gamma, tex);
@@ -460,112 +490,141 @@ public class openGL {
         return (int) Math.ceil(Math.max(Math.max(x0, x1), x2)); // 边界框向上取整
     }
 
-    /*
-    public void ssao(int[] screen) {
-        // 采样半径 (World Space / Eye Space 单位)
-        double radius = 0.5;
 
-        // 遍历屏幕像素
+    public void ssao(double[][] perspective, double[][] viewport, int[] screen, double f) {
+        double radius = 0.5; // 采样半径，可调整
+        int samples = 16;    // 采样点数量，越多越慢但越平滑
+
+        // 预计算 Viewport 矩阵 (复用 getViewport 逻辑)
+        // 预计算 Perspective 矩阵
+
+        double[] samplePos = new double[4];
+        double[] clip = new double[4];
+        double[] ndc = new double[4];
+        double[] screenPos = new double[4];
+        double[] origin = new double[4];
+        double[] surface = new double[4];
         for (int x = 0; x < Width; x++) {
             for (int y = 0; y < Height; y++) {
-                // 获取当前像素的eye空间坐标
-                Vec3 origin = scToEye(x, y);
+                //  获取当前像素的 Eye 坐标
+                scToEye(x, y, f, scale, origin);
                 if (origin == null) {
-                    continue; // 背景不处理
+                    continue;
                 }
+
                 double occlusion = 0;
-                int samples = 8; // 采样数，越高越慢但越平滑
-                // 随机采样周围点
+                //  随机采样
                 for (int i = 0; i < samples; i++) {
-                    // 随机生成球面上的向量(简化版)
-                    double r1 = Math.random() * 2 - 1;
-                    double r2 = Math.random() * 2 - 1;
-                    double r3 = Math.random() * 2 - 1;
-                    Vector sampleDir = new Vector(r1, r2, r3).normalize();
+                    // 简单的随机向量 (建议换成半球采样以获得更好效果，这里先用球体简化)
+                    double r1 = Math.random() * 2.0 - 1.0;
+                    double r2 = Math.random() * 2.0 - 1.0;
+                    double r3 = Math.random() * 2.0 - 1.0;
 
-                    // 确保采样点在表面法线方向(半球)是更准确的做法
-                    // 但这里简化为假设法线指向相机(z<0)
-                    if (sampleDir.z() > 0)
-                        sampleDir = sampleDir.scale(-1);
-                    // 得到采样点 Eye 坐标
-                    Vec3 samplePos = new Vec3(
-                            origin.x() + sampleDir.x() * radius,
-                            origin.y() + sampleDir.y() * radius,
-                            origin.z() + sampleDir.z() * radius,
-                            1.0);
-                    // 将采样点投影回屏幕
-                    // Eye -> Clip
-                    Vec3 clip = new Vec3(Matrix.product(getPerspective(fol), samplePos.matrix()));
-                    if (clip.w() == 0)
+                    // 归一化随机向量
+                    double inv_d = Math.sqrt(r1*r1 + r2*r2 + r3*r3);
+                    r1 *= inv_d;
+                    r2 *= inv_d;
+                    r3 *= inv_d;
+
+                    // 计算采样点 Eye 坐标
+                    samplePos[0] = origin[0] + r1 * radius;
+                    samplePos[1] = origin[1] + r2 * radius;
+                    samplePos[2] = origin[2] + r3 * radius;
+                    samplePos[3] = 1.0;
+
+                    //  投影回屏幕(eye -> clip -> NDC -> screen)
+                    Matrix.vec_product(perspective, samplePos, clip);
+                    if (clip[3] == 0){
                         continue;
-                    // Clip -> NDC
-                    double invW = 1.0 / clip.w();
-                    Vec3 ndc = clip.scale(invW);
+                    }
 
-                    // NDC -> Screen
-                    double[][] viewport = getViewport(startX, startY, Width, Height);
-                    Vec3 screenPos = new Vec3(Matrix.product(viewport, ndc.matrix()));
+                    //  clip -> NDC
+                    double invW = 1.0 / clip[3];
+                    ndc[0] = clip[0] * invW;
+                    ndc[1] = clip[1] * invW;
+                    ndc[2] = clip[2] * invW;
+                    ndc[3] = 1.0;
 
-                    int sampleX = (int) screenPos.x();
-                    int sampleY = (int) screenPos.y();
-                    // 遮挡测试
-                    if (sampleX >= 0 && sampleX < Width && sampleY >= 0 && sampleY < Height) {
-                        // 获取该采样位置 "实际"几何体在eye空间的坐标
-                        Vec3 surfacePoint = scToEye(sampleX, sampleY);
-                        if (surfacePoint != null) {
-                            // 距离检查: 只遮挡附近的物体，避免远处的背景遮挡
-                            double rangeCheck = Math.abs(origin.z() - surfacePoint.z()) < radius ? 1.0 : 0.0;
+                    //  NDC -> screen
+                    Matrix.vec_product(viewport, ndc, screenPos);
+                    int sx = (int) screenPos[0];
+                    int sy = (int) screenPos[1];
 
-                            if (surfacePoint.z() > samplePos.z() && rangeCheck > 0.5) {
+                    //  遮挡测试
+                    if (sx >= 0 && sx < Width && sy >= 0 && sy < Height) {
+                        // 获取该采样位置对应像素的 "真实" 几何体 Eye 坐标
+                        scToEye(sx, sy, f, scale, surface);
+                        if (surface != null) {
+                            // 比较深度:
+                            // surface[2] (几何体) 如果大于 samplePos[2] (采样点)，说明几何体更靠近相机，挡住了采样点
+                            // 距离检查: rangeCheck 避免遮挡太远的东西
+                            double rangeCheck = Math.abs(origin[2] - surface[2]) < radius ? 1.0 : 0.0;
+                            if (surface[2] > samplePos[2] && rangeCheck > 0.5) {
                                 occlusion += 1.0;
                             }
                         }
                     }
                 }
-                // 应用遮挡
+                //  应用遮挡到颜色
                 occlusion = 1.0 - (occlusion / samples);
 
-                // 将AO乘到当前像素颜色上
+                // 读取原颜色
                 int screenY = isUpsideDown ? y : Height - 1 - y;
                 int idx = x + screenY * Width;
                 int color = screen[idx];
+
+                // 混合颜色
                 int r = (color >> 16) & 0xFF;
                 int g = (color >> 8) & 0xFF;
                 int b = color & 0xFF;
 
-                r = (int) (r * occlusion);
-                g = (int) (g * occlusion);
-                b = (int) (b * occlusion);
+                r = (int)(r * occlusion);
+                g = (int)(g * occlusion);
+                b = (int)(b * occlusion);
 
-                screen[idx] = (r << 16) | (g << 8) | b;
+                screen[idx] = (0xFF << 24) | (r << 16) | (g << 8) | b;
             }
         }
     }
 
-    private Vec3 scToEye(int x, int y) {
+    //  将屏幕像素坐标还原为 Eye 空间坐标
+    private void scToEye(int x, int y, double f, double scale, double[] dest) {
         int index = x + y * Width;
-        double z_screen = zbuffer[index];
-        // 忽略背景
-        if (z_screen == Double.NEGATIVE_INFINITY) {
-            return null;
+        if (index < 0 || index >= zbuffer.length) {
+            return;
         }
-        // z: screen -> NDC -> eye
-        double rp_c = 2.0 / 100000.0;
-        double z_ndc = z_screen * rp_c - 1;
-        double z_eye = (z_ndc * fol) / (fol + z_ndc);
-        // 计算w
-        double w = 1.0 - z_eye / fol;
-        // x,y: screen -> NDC
-        double hf_w = Width / 2.0;
-        double hf_h = Height / 2.0;
-        double x_ndc = (x - startX - hf_w) / hf_w;
-        double y_ndc = (y - startY - hf_h) / hf_h;
-        // x,y: NDC -> eye
-        double x_eye = x_ndc * w;
-        double y_eye = y_ndc * w;
-        return new Vec3(x_eye, y_eye, z_eye, 1.0);
+        double z_screen = zbuffer[index];
+
+        // 忽略背景 (假设背景是负无穷)
+        if (z_screen == Double.NEGATIVE_INFINITY) {
+            return;
+        }
+        //  z: screen -> NDC -> eye
+        //  z_screen = (z_ndc * c) + c, z_ndc = z_screen / c - 1
+        double c = 100000.0 / 2.0;
+        double z_ndc = z_screen / c - 1.0;
+
+        //  z_ndc = z_eye / (1 - z_eye/f), z_eye = (z_ndc * f) / (f + z_ndc)
+        double z_eye = (z_ndc * f) / (f + z_ndc);
+
+        //  计算w
+        double w = 1.0 - z_eye / f;
+
+        double a = Width / 2.0 * scale;
+        double b = Height / 2.0 * scale;
+
+        double x_ndc = (x - startX - a) / a;
+        double y_ndc = (y - startY - b) / b;
+
+        //  Perspective XY 变换: x_ndc = x_eye / w
+        //  x_eye = x_ndc * w
+        dest[0] = x_ndc * w;
+        dest[1] = y_ndc * w;
+        dest[2] = z_eye;
+        dest[3] = 1.0;
     }
-     */
+
+
     private void line(int ax, int ay, int bx, int by, Color color, Color[][] scbuffer) {
         boolean steep = Math.abs(ax - bx) <= Math.abs(ay - by);
 
@@ -691,7 +750,7 @@ public class openGL {
             throw new IllegalArgumentException("相加顶点的坐标数量不同！");
         }
         for (int i = 0; i < k; i++) {
-            dest[i] = a[i] + b[i];
+            dest[i] = a[i] - b[i];
         }
     }
 

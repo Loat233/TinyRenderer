@@ -102,7 +102,7 @@ public class MainThread extends JFrame{
 
     public void render(openGL renderer, Model[] models, int degree) {
         // 每帧开始时清空屏幕缓冲区
-        Arrays.fill(screen, 0xFF000000);
+        Arrays.fill(screen, 0xFF333333);
 
         double n = degree * Math.PI / 180.0;
         /*
@@ -110,14 +110,14 @@ public class MainThread extends JFrame{
         double eye_z = 5 * Math.sin(n);
          */
 
-        double[] eye = new double[]{5, 0, 5, 1};
+        double[] eye = new double[]{15, 4, 15, 1};
         double[] center = new double[]{0, 0, 0, 1};
         double[] up = new double[]{0, 1, 0};
 
         //  点光源参数
-        renderer.init_lightPos(new double[]{3, 10, 0, 1});
+        renderer.init_lightPos(new double[]{100, 100, 100, 1});
         //  相机参数
-        renderer.camera(eye, center, up, 10);
+        renderer.camera(eye, center, up, 0.8);
         //  模型朝向角度
         renderer.model_direct(n);
         //  加载渲染模型后的画面
